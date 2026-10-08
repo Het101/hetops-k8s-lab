@@ -12,6 +12,9 @@ spec:
     targetRevision: main
     path: apps/clinic/overlays/lab
   destination: { server: https://kubernetes.default.svc, namespace: clinic }
+  ignoreDifferences:              # the HPA owns api replicas (3-5); without this, selfHeal fights it back to 3
+  - { group: apps, kind: Deployment, name: api, namespace: clinic, jsonPointers: [/spec/replicas] }
   syncPolicy:
     automated: { prune: true, selfHeal: true }
+    syncOptions: [RespectIgnoreDifferences=true]
     retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }

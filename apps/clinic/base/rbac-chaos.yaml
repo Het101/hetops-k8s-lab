@@ -1,0 +1,44 @@
+# What chaos-api may do inside clinic: exactly the menu, nothing more.
+# It lives with the clinic app, so a namespace nuke + Argo CD restore brings it back together with everything else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: chaos-api, namespace: clinic }
+rules:
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [list, delete]           # kill-pod, delete-api-pods, snapshot
+- apiGroups: [""]
+  resources: [pods/eviction]
+  verbs: [create]                 # evict-api (the PDB may say no)
+- apiGroups: [apps]
+  resources: [deployments]
+  verbs: [list]                   # health check, snapshot, bad-release reads the image
+- apiGroups: [apps]
+  resources: [deployments]
+  resourceNames: [api]
+  verbs: [patch]                  # bad-release
+- apiGroups: [apps]
+  resources: [deployments/scale]
+  resourceNames: [web]
+  verbs: [patch]                  # scale-zero
+- apiGroups: [apps]
+  resources: [deployments]
+  resourceNames: [web]
+  verbs: [delete]                 # delete-web
+- apiGroups: [""]
+  resources: [services]
+  resourceNames: [api]
+  verbs: [delete]                 # delete-api-svc
+- apiGroups: [""]
+  resources: [secrets]
+  resourceNames: [clinic-db]
+  verbs: [delete]                 # delete-secret: delete only; chaos-api can never READ a secret
+- apiGroups: [networking.k8s.io]
+  resources: [networkpolicies]
+  verbs: [create]                 # rogue-netpol
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: chaos-api, namespace: clinic }
+subjects: [{ kind: ServiceAccount, name: chaos-api, namespace: chaos }]
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: chaos-api }

@@ -1,0 +1,64 @@
+# chaos-api's identity, and what it may do outside the clinic namespace.
+# Its permissions INSIDE clinic live in apps/clinic/base/rbac-chaos.yaml, so they come back with the namespace after a nuke.
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: chaos-api, namespace: chaos }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: chaos-api, namespace: clinic-data }
+rules:
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [list]                   # health check, snapshot
+- apiGroups: [""]
+  resources: [pods]
+  resourceNames: [postgres-0]
+  verbs: [delete]                 # kill-postgres
+- apiGroups: [apps]
+  resources: [deployments]
+  verbs: [list]                   # snapshot
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: chaos-api, namespace: clinic-data }
+subjects: [{ kind: ServiceAccount, name: chaos-api, namespace: chaos }]
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: chaos-api }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: chaos-api, namespace: chaos }
+rules:
+- apiGroups: [""]
+  resources: [configmaps]
+  resourceNames: [chaos-config, chaos-incidents]
+  verbs: [get, patch]             # kill switch, incident log
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: chaos-api, namespace: chaos }
+subjects: [{ kind: ServiceAccount, name: chaos-api, namespace: chaos }]
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: chaos-api }
+---
+# Cluster-scoped grants, each pinned to one name where Kubernetes allows it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: chaos-api }
+rules:
+- apiGroups: [""]
+  resources: [namespaces]
+  resourceNames: [clinic]
+  verbs: [delete]                 # nuke-namespace: this one namespace only
+- apiGroups: [argoproj.io]
+  resources: [applications]
+  resourceNames: [clinic]
+  verbs: [get]                    # is Argo CD green?
+- apiGroups: [metrics.k8s.io]
+  resources: [nodes]
+  verbs: [list]                   # node memory gate
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: chaos-api }
+subjects: [{ kind: ServiceAccount, name: chaos-api, namespace: chaos }]
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: chaos-api }
