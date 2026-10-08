@@ -2,6 +2,8 @@ apiVersion: v1                 # Namespace is a core object, so "v1" (no group)
 kind: Namespace
 metadata:
   name: clinic                 # the name you'll use with -n clinic
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false     # moving to the clinic app: never delete it on the way
   labels:
     app.kubernetes.io/part-of: chaos-lab               # just a tag, so you can list everything in the lab
     pod-security.kubernetes.io/enforce: restricted     # REJECT pods that break the "restricted" rules

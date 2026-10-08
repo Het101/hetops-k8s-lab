@@ -3,6 +3,8 @@ kind: ResourceQuota            # the ceiling for the WHOLE namespace, all pods a
 metadata:
   name: budget
   namespace: clinic            # quotas live inside the namespace they limit
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false     # moving to the clinic app: never delete it on the way
 spec:
   hard:
     requests.cpu: "2"          # all pods' CPU requests together can't exceed 2 CPUs
@@ -17,6 +19,8 @@ kind: LimitRange               # rules for EACH container
 metadata:
   name: defaults
   namespace: clinic
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false     # moving to the clinic app: never delete it on the way
 spec:
   limits:
   - type: Container
