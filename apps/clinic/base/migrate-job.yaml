@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: clinic
+spec:
+  backoffLimit: 0                 # one try: a failed migration stops the release, a human looks
+  activeDeadlineSeconds: 600      # never hang forever (the CMS-took-down-UAT lesson)
+  ttlSecondsAfterFinished: 3600   # clean the finished Job up after an hour
+  template:
+    metadata:
+      labels: { app: migrate }
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+      - name: migrate
+        image: ghcr.io/het101/clinic-api:66f54cc
+        command: [node, api/src/migrate.js]
+        envFrom:
+        - secretRef: { name: clinic-db }
+        resources:
+          requests: { cpu: 100m, memory: 128Mi }
+          limits: { cpu: 250m, memory: 256Mi }
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: { drop: [ALL] }
