@@ -1,0 +1,70 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny          # step 1: deny ALL traffic in and out of every pod here
+  namespace: clinic
+spec:
+  podSelector: {}             # {} = every pod in the namespace
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns             # step 2: every pod may look up names (or nothing works at all)
+  namespace: clinic
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+      podSelector: { matchLabels: { k8s-app: kube-dns } }   # same list item = AND
+    ports:
+    - { protocol: UDP, port: 53 }
+    - { protocol: TCP, port: 53 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress           # the api accepts traffic only from the ingress and from chaos
+  namespace: clinic
+spec:
+  podSelector: { matchLabels: { app: api } }
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: chaos } }   # separate items = OR
+    ports:
+    - { protocol: TCP, port: 8080 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web-ingress           # web accepts traffic only from the ingress
+  namespace: clinic
+spec:
+  podSelector: { matchLabels: { app: web } }
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+    ports:
+    - { protocol: TCP, port: 8080 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-egress             # only the pods that need the database may reach it
+  namespace: clinic
+spec:
+  podSelector:
+    matchExpressions:
+    - { key: app, operator: In, values: [api, worker, migrate, nightly-report] }
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: clinic-data } }
+      podSelector: { matchLabels: { app: postgres } }
+    ports:
+    - { protocol: TCP, port: 5432 }

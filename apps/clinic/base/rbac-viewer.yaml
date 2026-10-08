@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lab-viewer
+  namespace: clinic
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role                     # permissions, valid in ONE namespace
+metadata:
+  name: viewer
+  namespace: clinic
+rules:
+- apiGroups: [""]              # "" = the core API group (pods, services, ...)
+  resources: [pods, pods/log, services, endpoints, events]
+  verbs: [get, list, watch]    # read only: no create, delete, patch or exec
+- apiGroups: [apps]
+  resources: [deployments, replicasets]
+  verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding              # gives the Role to the ServiceAccount
+metadata:
+  name: lab-viewer
+  namespace: clinic
+subjects:
+- { kind: ServiceAccount, name: lab-viewer, namespace: clinic }
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: viewer

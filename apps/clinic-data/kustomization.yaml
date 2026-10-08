@@ -1,6 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: clinic-data           # stamps this namespace on every object (a safety net)
+namespace: clinic-data
 resources:
 - sealed-postgres-auth.yaml
 - postgres.yaml
+- networkpolicy.yaml
