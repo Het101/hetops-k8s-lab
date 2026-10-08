@@ -1,0 +1,36 @@
+apiVersion: v1                 # Namespace is a core object, so "v1" (no group)
+kind: Namespace
+metadata:
+  name: clinic                 # the name you'll use with -n clinic
+  labels:
+    app.kubernetes.io/part-of: chaos-lab               # just a tag, so you can list everything in the lab
+    pod-security.kubernetes.io/enforce: restricted     # REJECT pods that break the "restricted" rules
+    pod-security.kubernetes.io/warn: restricted        # also print a warning explaining what's wrong
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clinic-data
+  labels:
+    app.kubernetes.io/part-of: chaos-lab
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chaos
+  labels:
+    app.kubernetes.io/part-of: chaos-lab
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform
+  labels:
+    app.kubernetes.io/part-of: chaos-lab
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
