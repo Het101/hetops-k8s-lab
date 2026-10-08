@@ -16,5 +16,10 @@ spec:
   - { group: apps, kind: Deployment, name: api, namespace: clinic, jsonPointers: [/spec/replicas] }
   syncPolicy:
     automated: { prune: true, selfHeal: true }
-    syncOptions: [RespectIgnoreDifferences=true]
-    retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }
+    syncOptions: [RespectIgnoreDifferences=true, CreateNamespace=true]   # this app rebuilds its own namespace
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/warn: restricted
+    retry: { limit: 10, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }   # ~20 min: outlasts a slow namespace deletion

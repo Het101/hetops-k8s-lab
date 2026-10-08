@@ -9,4 +9,4 @@ resources:
 - networkpolicies.yaml
 images:
 - name: ghcr.io/het101/chaos-api
-  newTag: 0cd1f86
+  newTag: 6eb5e12

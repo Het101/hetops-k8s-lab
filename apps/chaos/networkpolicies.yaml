@@ -30,6 +30,9 @@ spec:
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: clinic } }
       podSelector: { matchLabels: { app: api } }
     ports: [{ protocol: TCP, port: 8080 }]
+  - to:                                  # ingress-nginx: the prober calls the lab the way a visitor does
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+    ports: [{ protocol: TCP, port: 80 }]
   - to:                                  # the Kubernetes API: Service IP and its real endpoint (kubectl -n default get endpoints kubernetes)
     - ipBlock: { cidr: 10.96.0.1/32 }
     - ipBlock: { cidr: 10.0.0.11/32 }
