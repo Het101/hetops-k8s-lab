@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: clinic
+resources:                       # the BASE: what the clinic app is, in any environment
+- sealed-clinic-db.yaml
+- sealed-clinic-internal.yaml
+- migrate-job.yaml
+- api.yaml
+- worker.yaml
+- report-cronjob.yaml
+- web.yaml
+- ingress.yaml
