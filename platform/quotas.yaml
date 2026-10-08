@@ -1,40 +1,4 @@
 apiVersion: v1
-kind: ResourceQuota            # the ceiling for the WHOLE namespace, all pods added together
-metadata:
-  name: budget
-  namespace: clinic            # quotas live inside the namespace they limit
-  annotations:
-    argocd.argoproj.io/sync-options: Prune=false     # moving to the clinic app: never delete it on the way
-spec:
-  hard:
-    requests.cpu: "2"          # all pods' CPU requests together can't exceed 2 CPUs
-    requests.memory: 3Gi       # all memory requests together: 3 GiB
-    limits.cpu: "4"            # CPU limits can be higher: CPU over the limit is only throttled
-    limits.memory: 3Gi         # memory limits: going over gets a pod killed, so keep this honest
-    pods: "20"                 # at most 20 pods at once
-    persistentvolumeclaims: "0"   # no disks in clinic; data lives in clinic-data
----
-apiVersion: v1
-kind: LimitRange               # rules for EACH container
-metadata:
-  name: defaults
-  namespace: clinic
-  annotations:
-    argocd.argoproj.io/sync-options: Prune=false     # moving to the clinic app: never delete it on the way
-spec:
-  limits:
-  - type: Container
-    default:                   # the limit a container gets if it doesn't set one
-      cpu: 250m                # 250 millicores = a quarter of one CPU
-      memory: 256Mi
-    defaultRequest:            # the request a container gets if it doesn't set one
-      cpu: 50m
-      memory: 64Mi
-    max:                       # the most any single container may ask for
-      cpu: "1"
-      memory: 1Gi
----
-apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: budget

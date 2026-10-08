@@ -35,7 +35,8 @@ rules:
   verbs: [delete]                 # delete-secret: delete only; chaos-api can never READ a secret
 - apiGroups: [networking.k8s.io]
   resources: [networkpolicies]
-  verbs: [create]                 # rogue-netpol
+  resourceNames: [api-ingress]
+  verbs: [delete]                 # rogue-netpol: remove the api's allow rule
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

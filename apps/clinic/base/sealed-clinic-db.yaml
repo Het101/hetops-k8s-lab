@@ -4,6 +4,8 @@ kind: SealedSecret
 metadata:
   name: clinic-db
   namespace: clinic
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"   # Secrets before the migration that reads them
 spec:
   encryptedData:
     DB_HOST: AgAZvfIgm+OHbyZpm7Sd1VQUmXwAGvPAMKODcaVpx+85/LEXaQGWfQw5+C5yMBLfSfeOU84k7ueBR9XCqiWgikzF4Fq4p0QmR1e05J5LEPzFAXLg2PK+cEgVgHPKKKbpgtOGrP8xBfhAd3n3cc3D+au2K7jd1BKTXcyiT/WujmZXmCp1OMosBonXhUUx9YMh5nCNddkPfWwJZNq0S0dpbll20ymWf4WVmfj9J+ozKSa0sbRj1TS6ES1ONbqgKEoBBkUtc9xDN1q6aND0grSetN1DvYMBBGtxFh+pFDWzHehSFGMJXn1Mb+zQGxIUQcgumG0Y+M2tXAoUlqbxHj8sOfc5Pif4agLl+O9lvAL2BeOAfN4rfhiiYhKcNhnu/N7nBrpX6VU+3GOp518MnrHtLJAfX5IRsaiO3DYpMvvdJYkkdzI1Kx8gjlyGBTeBycXKGS5STIITWMjF9XU77i8zihwy/40VXZmqJqKiZDz9fgaVMr7WrpHDPvTfp8mET2eoNeT+GVK9S+Evq6vRyW5yDDhPyR8NsAOBmsFLy9Jdjt4nif3wFE5D00z0SxEcU8nJ+8PbleM6MWPzKXfMxd9xeVLkORmAppsVcP//+jkVfpOkAh03CEmIh8Ps8oFy6epSHIhzeUnpt5ovnSDGWTRs2jvMjiqEGD30CzwN9XhVFeX+8zz/7MjD110KvjEiWKn8nzs7jjhSFrNcRewAl7Tq5craat0GweVPz/q9yltlBWBgS7KPbQGMpw==

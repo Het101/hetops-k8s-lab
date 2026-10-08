@@ -4,7 +4,8 @@ metadata:
   name: migrate
   namespace: clinic
   annotations:
-    argocd.argoproj.io/hook: PreSync                          # run BEFORE anything else is synced
+    argocd.argoproj.io/hook: Sync                             # a Sync hook runs in wave order, unlike PreSync
+    argocd.argoproj.io/sync-wave: "-1"                       # after the Secrets (-2), before the pods (0): a failed migration still blocks the release
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation # delete last run's Job, then create a fresh one
 spec:
   backoffLimit: 0
