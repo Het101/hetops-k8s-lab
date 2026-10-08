@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: platform
+spec:
+  replicas: 2                        # two connectors: one can die and the site stays up
+  selector:
+    matchLabels: { app: cloudflared }
+  template:
+    metadata:
+      labels: { app: cloudflared }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532             # the "nonroot" user in the cloudflared image
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+      - name: cloudflared
+        image: cloudflare/cloudflared:2026.10.0
+        args: [tunnel, --no-autoupdate, --metrics, "0.0.0.0:2000", run]
+        env:
+        - name: TUNNEL_TOKEN         # cloudflared reads its token from this variable
+          valueFrom:
+            secretKeyRef: { name: cloudflared-token, key: token }
+        livenessProbe:
+          httpGet: { path: /ready, port: 2000 }   # /ready is OK once connected to Cloudflare
+          periodSeconds: 10
+          failureThreshold: 3
+        resources:
+          requests: { cpu: 25m, memory: 32Mi }
+          limits: { cpu: 100m, memory: 128Mi }
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: { drop: [ALL] }

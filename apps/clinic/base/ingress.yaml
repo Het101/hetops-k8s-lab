@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clinic
+  namespace: clinic
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: lab.hetops.dev
+    http:
+      paths:
+      - path: /api                 # API calls go to the api Service
+        pathType: Prefix
+        backend:
+          service: { name: api, port: { number: 80 } }
+      - path: /                    # everything else goes to the web page
+        pathType: Prefix
+        backend:
+          service: { name: web, port: { number: 80 } }
