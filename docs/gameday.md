@@ -27,6 +27,8 @@ read -rs -p "BYPASS_TOKEN: " CHAOS_BYPASS; echo; export CHAOS_BYPASS
 
 ## The 15 experiments, easiest first
 
+`kubectl get -w` watches one resource type at a time, so each watch below names a single type.
+
 For each one: read the prediction question, write your answer, run it, then note the recovery time and anything that surprised you.
 
 | # | id | Predict | Watch in terminal B | Target |
@@ -37,10 +39,10 @@ For each one: read the prediction question, write your answer, run it, then note
 | 4 | `hang` | Which fails first, readiness or liveness, and how many seconds apart? | `kubectl -n clinic get events -w --field-selector reason=Unhealthy` | 60 s |
 | 5 | `evict-api` | How many evictions succeed, and how many are refused? | `kubectl -n clinic get pdb api -w` | 90 s |
 | 6 | `delete-api-pods` | Does the PodDisruptionBudget stop this one? How long do requests fail? | `kubectl get pods -n clinic -l app=api -w` | 60 s |
-| 7 | `kill-postgres` | Is any data lost? Which other pods notice? | `kubectl -n clinic-data get pod,pvc -w` | 120 s |
+| 7 | `kill-postgres` | Is any data lost? Which other pods notice? | `kubectl -n clinic-data get pvc` once, then `kubectl -n clinic-data get pods -w` | 120 s |
 | 8 | `scale-zero` | Who scales `web` back to 2: Kubernetes or Argo CD? How long until it notices? | `kubectl -n argocd get app clinic -w` | 120 s |
 | 9 | `delete-web` | Same question, for a whole deleted Deployment. | `kubectl -n clinic get deploy -w` | 120 s |
-| 10 | `delete-api-svc` | The api pods stay healthy. Does the site still work? | `kubectl -n clinic get svc,endpointslices -w` | 120 s |
+| 10 | `delete-api-svc` | The api pods stay healthy. Does the site still work? | `kubectl -n clinic get endpointslices -w` | 120 s |
 | 11 | `delete-secret` | Does the Secret come back? Who would bring it back? Do the running pods care? | `kubectl -n clinic get secret clinic-db -w` | 120 s |
 | 12 | `rogue-netpol` | What breaks first? How does Argo CD know this policy is not in git? | `kubectl -n clinic get networkpolicy -w` | 180 s |
 | 13 | `bad-release` | Do users see errors? What stops the broken version from replacing the good pods? | `kubectl -n clinic rollout status deploy/api -w` | 180 s |
