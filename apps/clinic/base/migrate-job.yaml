@@ -4,8 +4,8 @@ metadata:
   name: migrate
   namespace: clinic
   annotations:
-    argocd.argoproj.io/hook: PreSync                          # run BEFORE anything else is synced
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation # delete last run's Job, then create a fresh one
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 600
@@ -23,6 +23,8 @@ spec:
       - name: migrate
         image: ghcr.io/het101/clinic-api:66f54cc
         command: [node, api/src/migrate.js]
+        env:
+        - { name: MIGRATE_FAIL, value: "true" }   # LAB ONLY: make this release's migration fail
         envFrom:
         - secretRef: { name: clinic-db }
         resources:
