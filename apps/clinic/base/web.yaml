@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: clinic
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: web }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101           # nginx-unprivileged's user, baked into that image
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+      - name: web
+        image: ghcr.io/het101/clinic-web:66f54cc
+        ports:
+        - { name: http, containerPort: 8080 }
+        readinessProbe:
+          httpGet: { path: /, port: http }
+          periodSeconds: 5
+        livenessProbe:
+          httpGet: { path: /, port: http }
+          periodSeconds: 10
+        lifecycle:
+          preStop:
+            sleep: { seconds: 5 }
+        resources:
+          requests: { cpu: 25m, memory: 32Mi }
+          limits: { cpu: 100m, memory: 64Mi }
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: { drop: [ALL] }
+        volumeMounts:
+        - { name: tmp, mountPath: /tmp }   # nginx writes its pid and temp files here
+      volumes:
+      - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: clinic
+spec:
+  selector: { app: web }
+  ports:
+  - { name: http, port: 80, targetPort: http }

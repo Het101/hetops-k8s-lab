@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly-report
+  namespace: clinic
+spec:
+  schedule: "0 2 * * *"          # 02:00 UTC every day (minute hour day month weekday)
+  concurrencyPolicy: Forbid      # never two reports at once
+  successfulJobsHistoryLimit: 3  # keep the last 3 runs for inspection
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1            # one retry, then it's a failure someone should look at
+      template:
+        metadata:
+          labels: { app: nightly-report }
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+          - name: report
+            image: ghcr.io/het101/clinic-api:66f54cc
+            command: [node, api/src/jobs.js, report]
+            envFrom:
+            - secretRef: { name: clinic-db }
+            resources:
+              requests: { cpu: 100m, memory: 128Mi }
+              limits: { cpu: 250m, memory: 256Mi }
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: [ALL] }

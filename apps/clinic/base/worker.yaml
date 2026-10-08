@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: clinic
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: worker }
+  strategy:
+    type: Recreate               # stop the old worker BEFORE starting the new one: jobs never run twice
+  template:
+    metadata:
+      labels: { app: worker }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+      - name: worker
+        image: ghcr.io/het101/clinic-api:66f54cc
+        ports:
+        - { name: http, containerPort: 8080 }
+        env:
+        - { name: RUN_JOBS, value: "true" }   # the ONLY place scheduled jobs run
+        envFrom:
+        - secretRef: { name: clinic-db }
+        - secretRef: { name: clinic-internal }
+        readinessProbe:
+          httpGet: { path: /readyz, port: http }
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet: { path: /healthz, port: http }
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+        resources:
+          requests: { cpu: 100m, memory: 128Mi }
+          limits: { cpu: 250m, memory: 256Mi }
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: { drop: [ALL] }
+        volumeMounts:
+        - { name: tmp, mountPath: /tmp }
+      volumes:
+      - { name: tmp, emptyDir: {} }
