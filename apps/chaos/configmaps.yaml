@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: chaos-config, namespace: chaos }
+data:
+  enabled: "false"           # the kill switch; stays off until the real Turnstile secret is sealed (plan 4)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: chaos-incidents, namespace: chaos }
+data:
+  incidents: "[]"            # chaos-api writes its incident log here

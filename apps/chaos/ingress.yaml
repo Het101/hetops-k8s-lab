@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chaos
+  namespace: chaos
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"       # stream events immediately (SSE)
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"   # let a viewer's stream stay open an hour
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: lab.hetops.dev
+    http:
+      paths:
+      - path: /chaos
+        pathType: Prefix
+        backend: { service: { name: chaos-api, port: { number: 80 } } }

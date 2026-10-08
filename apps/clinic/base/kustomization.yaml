@@ -12,3 +12,4 @@ resources:
 - ingress.yaml
 - networkpolicies.yaml
 - rbac-viewer.yaml
+- rbac-chaos.yaml

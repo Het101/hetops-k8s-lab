@@ -12,5 +12,7 @@ spec:
   - { server: https://kubernetes.default.svc, namespace: clinic-data }
   - { server: https://kubernetes.default.svc, namespace: chaos }
   - { server: https://kubernetes.default.svc, namespace: platform }
-  clusterResourceWhitelist:                        # the only cluster-wide object allowed: Namespace
+  clusterResourceWhitelist:                        # cluster-wide objects this project may create
   - { group: "", kind: Namespace }
+  - { group: rbac.authorization.k8s.io, kind: ClusterRole }          # chaos-api: delete ONE namespace, read ONE Argo app, node memory
+  - { group: rbac.authorization.k8s.io, kind: ClusterRoleBinding }

@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chaos
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: lab
+  source:
+    repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: apps/chaos
+  destination: { server: https://kubernetes.default.svc, namespace: chaos }
+  ignoreDifferences:              # these two ConfigMaps change at runtime; git must not undo that
+  - { kind: ConfigMap, name: chaos-config, namespace: chaos, jsonPointers: [/data] }
+  - { kind: ConfigMap, name: chaos-incidents, namespace: chaos, jsonPointers: [/data] }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [RespectIgnoreDifferences=true]
+    retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }
