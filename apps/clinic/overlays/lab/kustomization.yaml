@@ -1,15 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../base
-images:
+- ../../base                     # start from the base...
+images:                          # ...and set the version for THIS environment
 - name: ghcr.io/het101/clinic-api
-  newTag: 66f54cc
+  newTag: 66f54cc                # CI will bump this one line to deploy a new version
 - name: ghcr.io/het101/clinic-web
   newTag: 66f54cc
-patches:                           # overlay-only changes, merged onto the base
-- target: { kind: Deployment, name: api }
-  patch: |-
-    - op: add
-      path: /spec/template/metadata/annotations
-      value: { lab/release: "2" }
