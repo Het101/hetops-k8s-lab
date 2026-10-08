@@ -3,10 +3,13 @@ kind: Job
 metadata:
   name: migrate
   namespace: clinic
+  annotations:
+    argocd.argoproj.io/hook: PreSync                          # run BEFORE anything else is synced
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation # delete last run's Job, then create a fresh one
 spec:
-  backoffLimit: 0                 # one try: a failed migration stops the release, a human looks
-  activeDeadlineSeconds: 600      # never hang forever (the CMS-took-down-UAT lesson)
-  ttlSecondsAfterFinished: 3600   # clean the finished Job up after an hour
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 3600
   template:
     metadata:
       labels: { app: migrate }

@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: clinic
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: lab
+  source:
+    repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: apps/clinic/overlays/lab
+  destination: { server: https://kubernetes.default.svc, namespace: clinic }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }

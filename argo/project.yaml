@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject                 # a GitOps boundary: what these apps may deploy, and where
+metadata:
+  name: lab
+  namespace: argocd
+spec:
+  description: HetOps chaos lab
+  sourceRepos:
+  - https://github.com/Het101/hetops-k8s-lab.git   # only this repo
+  destinations:                                    # only these namespaces
+  - { server: https://kubernetes.default.svc, namespace: clinic }
+  - { server: https://kubernetes.default.svc, namespace: clinic-data }
+  - { server: https://kubernetes.default.svc, namespace: chaos }
+  - { server: https://kubernetes.default.svc, namespace: platform }
+  clusterResourceWhitelist:                        # the only cluster-wide object allowed: Namespace
+  - { group: "", kind: Namespace }
