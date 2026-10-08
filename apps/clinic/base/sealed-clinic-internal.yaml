@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: clinic-internal
+  namespace: clinic
+spec:
+  encryptedData:
+    INTERNAL_TOKEN: AgBI5f2wMtKA/pGYY8l0QTnEl1LigS+KMqraYjb3ov4cYqivJBGEYOx7D0uZQzdKyvvJPBVdhZ5sBY/6/5G4deHJ5pO/j/uqQ44pEV3Yz2jNjG0ZWdSQfY0wPH1rbJWwk8WKVWN4WZBNKHcupDjNW5xDJYDzsd94N4mW0Xw1uWLZcJUs7j433yXOyWgl1HhJYNyS4oaSJY6FrlENUFbHmmYIDw6V3Ae05DrY8Q2+iv4xENCUDBaxbN2PSmU+BK5AgniLs9OpVPOtDMVpZD6s4YdbdJjov/J+15gZp46vM88ytn6PqxHzcHF7BEHYZUs4XeR5ivgcrSuUrW38p9HvNJLJMDBL61SlHjJEev5jI0T+vd9SvO5QzSgH0+a4tuxEEqOq2U+T6pkcNESn2wicF2EPSv58CEikCu4gFVHAc/AiI1zTrnLuA/Ma7ERwqslYSO3WceocRDWMeGkrfOMP9P5J0P1cUr79DjViEELD+Hf+IOj92HUmqmDgFCIeqwntB4uTnsYtA24fVFj/kWQCENrQDWqf0XYwBFCmfCZajFPFIPpgfCq2Xu5SMmIkJtUMslT3CV8cT2xazRTLsSHHCqNdJAMZaK0lk68uZZZ4OBjtR+GKd2vt09tos905KhZ2syqMMCVGgEGwUOicE8A78lSfrgaVilQTgSVcEULFQHr5rzARimD2bk77x/ZUwZIGXaLdQTMlPEXwTL6PZsi/bUIA6Nxeb/a3Wi2GszjZeBKaYWbTUH8LU7yr+3yMVyTlHP0=
+  template:
+    metadata:
+      name: clinic-internal
+      namespace: clinic

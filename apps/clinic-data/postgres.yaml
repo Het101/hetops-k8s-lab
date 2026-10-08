@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: clinic-data
+spec:
+  clusterIP: None              # "headless": no virtual IP; DNS returns the pod's own IP
+  selector:
+    app: postgres
+  ports:
+  - name: pg
+    port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet              # like a Deployment, but pods get fixed names (postgres-0) and their own disk
+metadata:
+  name: postgres
+  namespace: clinic-data
+spec:
+  serviceName: postgres        # ties the pods to the headless Service above for stable DNS
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      securityContext:         # POD level: applies to every container
+        runAsNonRoot: true
+        runAsUser: 999         # the "postgres" user inside the official image
+        runAsGroup: 999
+        fsGroup: 999           # files on mounted volumes get group 999, so Postgres can write
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: postgres
+        image: postgres:17
+        ports:
+        - name: pg
+          containerPort: 5432
+        env:
+        - name: PGDATA         # keep the data in a SUBFOLDER of the volume:
+          value: /var/lib/postgresql/data/pgdata   # initdb needs an empty folder it owns
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:      # read one key from the Secret the controller just made
+              name: postgres-auth
+              key: POSTGRES_PASSWORD
+        readinessProbe:        # "ready for traffic?": asks Postgres itself
+          exec:
+            command: [pg_isready, -U, postgres]
+          periodSeconds: 5
+        livenessProbe:         # "still alive?": just checks the port is open
+          tcpSocket:
+            port: 5432
+          periodSeconds: 10
+          failureThreshold: 6  # 6 x 10s = a full minute before a restart; databases deserve patience
+        resources:
+          requests: { cpu: 250m, memory: 512Mi }
+          limits: { cpu: 500m, memory: 1Gi }
+        securityContext:       # CONTAINER level: the other two "restricted" rules
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:        # one disk PER POD, created automatically: data-postgres-0
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ReadWriteOnce]   # one node at a time can mount it
+      resources:
+        requests:
+          storage: 2Gi

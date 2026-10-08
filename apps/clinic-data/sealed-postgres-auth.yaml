@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: postgres-auth
+  namespace: clinic-data
+spec:
+  encryptedData:
+    POSTGRES_PASSWORD: AgBj8EDSiwlRyTgQxMlYE1vp/CrLAJ9YpkuENR8BusoNAgkANFpMvEN9nX4sHW01VvOKrFS0Ql+0mIxJWc1dVM3elBFHj0rB3ROq6RYISbHZSr1BmDVDaQ7cPaOMTHHBIKKUWur25KSZVORZhM7DYBfTcl7M1gaIG61tJ95oHBuDoiMAAmtmsmEJSExvFlXjxp1mJyGQCco95h3RH5eeZPlYc0AQdnEPtoAZTs4vH2/BUxGfjCn9PR6CpV3UdHkyUU2rrnQY6igvEtqFZXmhgDAQi9nbhfZBmCv41xjQ3+OvzPwl1BebyZmy/9Ox9nSmI83qVlAkHorln8Rv0sMtyYqQxwtlVMVAIdzfv/UbWPV69ZaTK8mE2Iqk7fZfduYWaBR3RVhnQMsu2VSCtKHqpGaTTOT7MwBYMuBmFHWfDycpicQ96P0xiEglxuOulKc7u1S9MgXJr8b9JL59GzhAi78Z2HD1jYxLBfHzrT/z8N3FVoc7sVSCRtL2RN9wG8BJz6unH6B2rb1tgp43pGS59xtQkxD2hsCQ33vtIXyMWnib2KSo5zcqgKbmL3XDHU7QKwNwI+Nymy+3R11KuHe84rXCTe9ytrFEVBthgtF5RntJ72JTnxwtOqoMgXdZEp1rDTlGdzAB4ESwLT8Go2R4V8X2V3cWQE732a7p2AKclilMgJRxcZDidtWqHSNEa1rmaWeolYJNzGy4/v1ZRCo=
+  template:
+    metadata:
+      name: postgres-auth
+      namespace: clinic-data
