@@ -1,0 +1,65 @@
+# kube-prometheus-stack 91.5.2, sized for one shared VM. Defaults are kept unless there is a reason.
+crds:
+  enabled: true
+
+# kubeadm binds these to 127.0.0.1, so Prometheus cannot scrape them: off, instead of permanently "down".
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeEtcd: { enabled: false }
+kubeProxy: { enabled: false }
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeProxy: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
+prometheus:
+  prometheusSpec:
+    scrapeInterval: 30s
+    retention: 7d
+    retentionSize: 4GB
+    # pick up every ServiceMonitor/PodMonitor/rule in the cluster, not only ones labelled for this Helm release
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 200m, memory: 600Mi }
+      limits: { memory: 1500Mi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: [ReadWriteOnce]
+          resources: { requests: { storage: 5Gi } }
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+
+grafana:
+  admin:
+    existingSecret: grafana-admin
+  persistence: { enabled: false }        # dashboards come from git; nothing to keep
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
+  grafana.ini:
+    analytics: { reporting_enabled: false, check_for_updates: false }
+    auth.anonymous: { enabled: false }
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { memory: 192Mi }
+kube-state-metrics:
+  resources:
+    requests: { cpu: 10m, memory: 48Mi }
+    limits: { memory: 192Mi }
+prometheus-node-exporter:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 96Mi }
