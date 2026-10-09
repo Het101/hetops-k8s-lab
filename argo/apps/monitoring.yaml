@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "0" }
+spec:
+  project: monitoring
+  sources:
+  - repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 91.5.2                     # pinned; upgrades are a reviewed one-line PR
+    helm:
+      releaseName: kps                         # short prefix for every object name
+      valueFiles: [$values/platform/monitoring/values.yaml]
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    ref: values                                # lets the chart above read our values file from git
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: platform/monitoring/extras           # our own objects: sealed secret, ServiceMonitors, dashboards
+  destination: { server: https://kubernetes.default.svc, namespace: monitoring }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]   # the CRDs are too big for client-side apply
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        pod-security.kubernetes.io/enforce: privileged          # node-exporter reads the host (hostNetwork, hostPID)
+        pod-security.kubernetes.io/warn: baseline
+    retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }

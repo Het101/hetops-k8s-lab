@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject                  # the monitoring stack needs cluster-wide objects (CRDs, ClusterRoles, webhooks); "lab" must not
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }   # the project must exist before the app that uses it
+spec:
+  description: Prometheus and Grafana for the chaos lab
+  sourceRepos:
+  - https://github.com/Het101/hetops-k8s-lab.git
+  - https://prometheus-community.github.io/helm-charts
+  destinations:
+  - { server: https://kubernetes.default.svc, namespace: monitoring }
+  - { server: https://kubernetes.default.svc, namespace: kube-system }     # the chart's CoreDNS / kubelet scrape Services
+  - { server: https://kubernetes.default.svc, namespace: ingress-nginx }   # the controller's metrics Service (M3)
+  clusterResourceWhitelist:
+  - { group: '*', kind: '*' }
