@@ -4,6 +4,6 @@ resources:
 - ../../base                     # start from the base...
 images:                          # ...and set the version for THIS environment
 - name: ghcr.io/het101/clinic-api
-  newTag: 66f54cc                # CI will bump this one line to deploy a new version
+  newTag: 70f5b04                # CI will bump this one line to deploy a new version
 - name: ghcr.io/het101/clinic-web
-  newTag: 66f54cc
+  newTag: 70f5b04
