@@ -1,0 +1,24 @@
+# The lab SLO: 99% of synthetic visits good over 7 days (docs/superpowers/specs/2026-10-09-slo-alerts-design.md).
+# Recording rules precompute the share of BAD visits over several windows, so dashboards and alerts stay cheap.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata: { name: lab-slo, namespace: monitoring }
+spec:
+  groups:
+  - name: lab-slo-sli
+    interval: 30s
+    rules:
+    - record: lab:visits_bad:ratio_rate5m
+      expr: (sum(rate(chaos_visits_total{result="bad"}[5m])) or vector(0)) / sum(rate(chaos_visits_total[5m]))
+    - record: lab:visits_bad:ratio_rate30m
+      expr: (sum(rate(chaos_visits_total{result="bad"}[30m])) or vector(0)) / sum(rate(chaos_visits_total[30m]))
+    - record: lab:visits_bad:ratio_rate1h
+      expr: (sum(rate(chaos_visits_total{result="bad"}[1h])) or vector(0)) / sum(rate(chaos_visits_total[1h]))
+    - record: lab:visits_bad:ratio_rate6h
+      expr: (sum(rate(chaos_visits_total{result="bad"}[6h])) or vector(0)) / sum(rate(chaos_visits_total[6h]))
+    - record: lab:visits_bad:ratio_rate1d
+      expr: (sum(rate(chaos_visits_total{result="bad"}[1d])) or vector(0)) / sum(rate(chaos_visits_total[1d]))
+    - record: lab:visits_bad:ratio_rate3d
+      expr: (sum(rate(chaos_visits_total{result="bad"}[3d])) or vector(0)) / sum(rate(chaos_visits_total[3d]))
+    - record: lab:visits_bad:ratio_rate7d
+      expr: (sum(rate(chaos_visits_total{result="bad"}[7d])) or vector(0)) / sum(rate(chaos_visits_total[7d]))
