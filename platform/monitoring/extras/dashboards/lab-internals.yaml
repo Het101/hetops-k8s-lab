@@ -1,0 +1,905 @@
+# Grafana dashboard "Clinic lab — internals", picked up by the sidecar via the label.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-lab-internals
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  lab-internals.json: |
+    {
+      "uid": "lab-internals",
+      "title": "Clinic lab — internals",
+      "description": "Inside the clinic: api, database pool, postgres and pods.",
+      "tags": [
+        "chaos-lab"
+      ],
+      "editable": true,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timezone": "browser",
+      "graphTooltip": 1,
+      "templating": {
+        "list": []
+      },
+      "annotations": {
+        "list": []
+      },
+      "links": [],
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Database reachable",
+          "description": "Can Prometheus scrape the postgres pod? When postgres-0 dies its exporter sidecar dies with it, so this (not pg_up) is the honest signal.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "max(up{job=\"postgres\"}) or vector(0)",
+              "legendFormat": "__auto",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "No",
+                      "color": "red"
+                    },
+                    "1": {
+                      "text": "Yes",
+                      "color": "green"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "auto",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Postgres connections",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum(pg_stat_activity_count)",
+              "legendFormat": "__auto",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "auto",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 2,
+          "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 6,
+            "y": 0
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Commits per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"clinic\"}[2m]))",
+              "legendFormat": "__auto",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "mappings": [],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "auto",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 3,
+          "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 12,
+            "y": 0
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Pool requests waiting",
+          "description": "Api requests queued for a database connection.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum(clinic_db_pool_connections{state=\"waiting\"})",
+              "legendFormat": "__auto",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "auto",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 4,
+          "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 18,
+            "y": 0
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Api slowest 5% (p95) by route",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum by (le, route) (rate(http_request_duration_seconds_bucket{namespace=\"clinic\"}[5m])))",
+              "legendFormat": "{{route}}",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                }
+              },
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 5,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 5
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Api requests by status",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum by (status) (rate(http_request_duration_seconds_count{namespace=\"clinic\"}[2m]))",
+              "legendFormat": "{{status}}",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                }
+              },
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "5.."
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "red"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "4.."
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "orange"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "2.."
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "green"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 6,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 5
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Database pool: in use and waiting",
+          "description": "Summed over api pods.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum(clinic_db_pool_connections{state=\"total\"}) - sum(clinic_db_pool_connections{state=\"idle\"})",
+              "legendFormat": "in use",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "B",
+              "expr": "sum(clinic_db_pool_connections{state=\"waiting\"})",
+              "legendFormat": "waiting",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                }
+              },
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "waiting"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "red"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 7,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 13
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Postgres connections and commits",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum(pg_stat_activity_count)",
+              "legendFormat": "connections",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "B",
+              "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"clinic\"}[2m]))",
+              "legendFormat": "commits/s",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                }
+              },
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 8,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 13
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Memory per pod (clinic)",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"clinic\",container!=\"\"})",
+              "legendFormat": "{{pod}}",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                }
+              },
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 9,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 21
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Available replicas per deployment (clinic)",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "kube_deployment_status_replicas_available{namespace=\"clinic\"}",
+              "legendFormat": "{{deployment}}",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "stepAfter",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                }
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "min": 0,
+              "max": null
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 10,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 21
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Pod restarts in the last hour",
+          "description": "Only pods that restarted are shown.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum by (namespace, pod) (round(increase(kube_pod_container_status_restarts_total{namespace=~\"clinic|clinic-data\"}[1h]))) > 0",
+              "legendFormat": "{{namespace}}/{{pod}}",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 3
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "value_and_name",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 11,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 29
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Last crash reason",
+          "description": "Why each container last stopped, if it ever did.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "kube_pod_container_status_last_terminated_reason{namespace=~\"clinic|clinic-data\"} == 1",
+              "legendFormat": "{{pod}}: {{reason}}",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "name",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 12,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 29
+          }
+        }
+      ]
+    }
