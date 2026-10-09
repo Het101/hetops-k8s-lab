@@ -1,0 +1,18 @@
+# The controller already serves metrics on :10254; this Service + ServiceMonitor let Prometheus find them.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-controller-metrics
+  namespace: ingress-nginx
+  labels: { app.kubernetes.io/name: ingress-nginx, app.kubernetes.io/component: controller-metrics }
+spec:
+  selector: { app.kubernetes.io/name: ingress-nginx, app.kubernetes.io/component: controller }
+  ports: [{ name: metrics, port: 10254, targetPort: 10254 }]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: ingress-nginx, namespace: monitoring }
+spec:
+  namespaceSelector: { matchNames: [ingress-nginx] }
+  selector: { matchLabels: { app.kubernetes.io/component: controller-metrics } }
+  endpoints: [{ port: metrics, interval: 30s }]
