@@ -36,7 +36,7 @@ data:
         {
           "type": "stat",
           "title": "Database reachable",
-          "description": "Can Prometheus scrape the postgres pod? When postgres-0 dies its exporter sidecar dies with it, so this (not pg_up) is the honest signal.",
+          "description": "Did postgres answer the exporter at every check in the last minute? pg_up is 0 while postgres starts, and missing (counted as 0) while the whole pod is gone. Scraping alone (up) is not enough: the exporter answers before the database does.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -48,7 +48,7 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "max(up{job=\"postgres\"}) or vector(0)",
+              "expr": "min_over_time((max(pg_up{job=\"postgres\"}) or vector(0))[1m:10s])",
               "legendFormat": "__auto",
               "range": true,
               "instant": false,
@@ -194,7 +194,7 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"clinic\"}[2m]))",
+              "expr": "sum(rate(pg_stat_database_xact_commit[2m]))",
               "legendFormat": "__auto",
               "range": true,
               "instant": false,
@@ -599,7 +599,7 @@ data:
                 "uid": "prometheus"
               },
               "refId": "B",
-              "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"clinic\"}[2m]))",
+              "expr": "sum(rate(pg_stat_database_xact_commit[2m]))",
               "legendFormat": "commits/s",
               "range": true,
               "instant": false,
