@@ -1,0 +1,16 @@
+# Our own apps' /metrics. Prometheus scrapes the pods behind each Service directly (pod IP : 8080).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: clinic-api, namespace: monitoring }
+spec:
+  namespaceSelector: { matchNames: [clinic] }
+  selector: { matchLabels: { app: api } }
+  endpoints: [{ port: http, path: /metrics, interval: 30s }]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: chaos-api, namespace: monitoring }
+spec:
+  namespaceSelector: { matchNames: [chaos] }
+  selector: { matchLabels: { app: chaos-api } }
+  endpoints: [{ port: http, path: /metrics, interval: 30s }]

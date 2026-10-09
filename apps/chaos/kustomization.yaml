@@ -10,4 +10,4 @@ resources:
 - selftest-cronjob.yaml
 images:
 - name: ghcr.io/het101/chaos-api
-  newTag: 3861aa1
+  newTag: ebba043
