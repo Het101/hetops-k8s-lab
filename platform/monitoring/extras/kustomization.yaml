@@ -4,3 +4,6 @@ resources:
 - sealed-grafana-admin.yaml
 - ingress-nginx-metrics.yaml
 - servicemonitors.yaml
+- dashboards/lab-visitors.yaml
+- dashboards/lab-internals.yaml
+- dashboards/lab-chaos.yaml

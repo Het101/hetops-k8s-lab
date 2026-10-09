@@ -44,12 +44,18 @@ grafana:
   admin:
     existingSecret: grafana-admin
   persistence: { enabled: false }        # dashboards come from git; nothing to keep
+  ingress:                               # reached through the Cloudflare tunnel, behind Access
+    enabled: true
+    ingressClassName: nginx
+    hosts: [grafana.hetops.dev]
+    path: /
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { memory: 384Mi }
   grafana.ini:
     analytics: { reporting_enabled: false, check_for_updates: false }
     auth.anonymous: { enabled: false }
+    server: { root_url: https://grafana.hetops.dev }
 
 prometheusOperator:
   resources:

@@ -1,0 +1,453 @@
+# Grafana dashboard "Clinic lab — chaos experiments", picked up by the sidecar via the label.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-lab-chaos
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  lab-chaos.json: |
+    {
+      "uid": "lab-chaos",
+      "title": "Clinic lab — chaos experiments",
+      "description": "What chaos-api broke, how fast the lab recovered, and whether the self-test passes.",
+      "tags": [
+        "chaos-lab"
+      ],
+      "editable": true,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timezone": "browser",
+      "graphTooltip": 1,
+      "templating": {
+        "list": []
+      },
+      "annotations": {
+        "list": []
+      },
+      "links": [],
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Last self-test",
+          "description": "Latest chaos-selftest or selftest-now job in the chaos namespace.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "(sum(kube_job_status_succeeded{namespace=\"chaos\",job_name=~\"chaos-selftest.*|selftest-now.*\"} * on (job_name) group_left () (topk(1, kube_job_created{namespace=\"chaos\",job_name=~\"chaos-selftest.*|selftest-now.*\"}) * 0 + 1)) == 1) or ((sum(kube_job_status_failed{namespace=\"chaos\",job_name=~\"chaos-selftest.*|selftest-now.*\"} * on (job_name) group_left () (topk(1, kube_job_created{namespace=\"chaos\",job_name=~\"chaos-selftest.*|selftest-now.*\"}) * 0 + 1)) > 0) * 0 - 1) or vector(0)",
+              "legendFormat": "__auto",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "1": {
+                      "text": "Passed",
+                      "color": "green"
+                    },
+                    "0": {
+                      "text": "Running or none",
+                      "color": "orange"
+                    },
+                    "-1": {
+                      "text": "Failed",
+                      "color": "red"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "auto",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Last self-test started",
+          "description": "How long ago the latest self-test job was created.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "time() - max(kube_job_created{namespace=\"chaos\",job_name=~\"chaos-selftest.*|selftest-now.*\"})",
+              "legendFormat": "__auto",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "mappings": [],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "auto",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 2,
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 8,
+            "y": 0
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Experiments in the last 24 hours",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum(round(increase(chaos_experiments_total[1d])))",
+              "legendFormat": "__auto",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "area",
+            "textMode": "auto",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "wideLayout": true
+          },
+          "id": 3,
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 16,
+            "y": 0
+          }
+        },
+        {
+          "type": "table",
+          "title": "Experiments by action and result (last 24 hours)",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum by (action, status) (round(increase(chaos_experiments_total[1d])))",
+              "legendFormat": "__auto",
+              "range": false,
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "groupingToMatrix",
+              "options": {
+                "columnField": "status",
+                "rowField": "action",
+                "valueField": "Value",
+                "emptyValue": "zero"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "align": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "id": 4,
+          "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 0,
+            "y": 5
+          }
+        },
+        {
+          "type": "table",
+          "title": "Recovery time by action (last 24 hours)",
+          "description": "Seconds from break to healthy. Compare with the targets on the right.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "histogram_quantile(0.5, sum by (le, action) (rate(chaos_recovery_seconds_bucket[1d])))",
+              "legendFormat": "__auto",
+              "range": false,
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "B",
+              "expr": "histogram_quantile(0.9, sum by (le, action) (rate(chaos_recovery_seconds_bucket[1d])))",
+              "legendFormat": "__auto",
+              "range": false,
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true
+                },
+                "renameByName": {
+                  "action": "Experiment",
+                  "Value #A": "Median",
+                  "Value #B": "Slowest 10% (p90)"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "align": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "id": 5,
+          "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 8,
+            "y": 5
+          }
+        },
+        {
+          "type": "text",
+          "title": "Recovery targets",
+          "options": {
+            "mode": "markdown",
+            "content": "| Experiment | Recovery target |\n|---|---|\n| kill-pod | 30 s |\n| evict-api | 90 s |\n| delete-api-pods | 60 s |\n| crash | 30 s |\n| leak | 60 s |\n| hang | 90 s |\n| scale-zero | 120 s |\n| delete-web | 120 s |\n| delete-api-svc | 120 s |\n| bad-release | 180 s |\n| delete-secret | 120 s |\n| rogue-netpol | 180 s |\n| kill-postgres | 120 s |\n| traffic-spike | 480 s |\n| nuke-namespace | 300 s |\n"
+          },
+          "id": 6,
+          "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 16,
+            "y": 5
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Synthetic visit success by tier",
+          "description": "Share of the prober's requests that succeeded.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "refId": "A",
+              "expr": "sum by (tier) (rate(chaos_probe_requests_total{result=\"ok\"}[5m])) / sum by (tier) (rate(chaos_probe_requests_total[5m]))",
+              "legendFormat": "{{tier}}",
+              "range": true,
+              "instant": false,
+              "format": "time_series"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                }
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "min": 0,
+              "max": 1
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 7,
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 15
+          }
+        }
+      ]
+    }
