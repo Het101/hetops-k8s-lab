@@ -26,7 +26,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: chaos-api, namespace: chaos }
+metadata: { name: chaos-api, namespace: chaos, labels: { app: chaos-api } }   # labels: so a ServiceMonitor can find it
 spec:
   selector: { app: chaos-api }
   ports: [{ name: http, port: 80, targetPort: http }]

@@ -25,6 +25,7 @@ spec:
   - from:
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
     - podSelector: { matchLabels: { app: chaos-selftest } }   # the nightly self-test (separate items = OR)
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }   # Prometheus scraping /metrics
     ports: [{ protocol: TCP, port: 8080 }]
   egress:
   - to:                                  # the clinic api pods: prober, load, /internal

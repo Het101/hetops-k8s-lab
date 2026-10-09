@@ -63,6 +63,7 @@ kind: Service
 metadata:
   name: api
   namespace: clinic
+  labels: { app: api }        # ServiceMonitors find Services by their labels
 spec:
   selector: { app: api }
   ports:

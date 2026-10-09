@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
 - sealed-grafana-admin.yaml
 - ingress-nginx-metrics.yaml
+- servicemonitors.yaml
