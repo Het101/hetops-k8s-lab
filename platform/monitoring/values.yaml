@@ -49,9 +49,9 @@ grafana:
     ingressClassName: nginx
     hosts: [grafana.hetops.dev]
     path: /
-  resources:
-    requests: { cpu: 50m, memory: 128Mi }
-    limits: { memory: 384Mi }
+  resources:                             # 384Mi was OOMKilled once 28 dashboards loaded (M6); Grafana 12 needs room
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { memory: 768Mi }
   grafana.ini:
     analytics: { reporting_enabled: false, check_for_updates: false }
     auth.anonymous: { enabled: false }
