@@ -87,4 +87,8 @@ Argo CD itself was installed by hand (Part 1), so these settings exist only on t
   kubectl -n argocd rollout restart statefulset argocd-application-controller
   ```
 - **Reconciliation every 60 s** (L7): `timeout.reconciliation: 60s` in `argocd-cm`.
+- **ingress-nginx request metrics** (monitoring M3, 9 Oct): v1.12.1 was installed without `--enable-metrics`, and exported only Go/process metrics. Prometheus showed the target UP with no request data. Fix:
+  ```bash
+  kubectl -n ingress-nginx patch deploy ingress-nginx-controller --type=json -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--enable-metrics=true"}]'
+  ```
 - **Node inotify limit:** `fs.inotify.max_user_instances = 512` in `/etc/sysctl.d/99-inotify.conf`. The default of 128 ran out with Kubernetes and Coolify on one VM (`kubectl logs -f` failed with "too many open files").
