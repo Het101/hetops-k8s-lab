@@ -76,3 +76,15 @@ After game day, the lab runs all 15 experiments by itself every night at 03:00 I
   ```
 - **Past nights:** `kubectl -n chaos get jobs`. Each one's log ends with its verdict line.
 - **Go-public gate:** 3 green nights in a row. Then set `enabled` to `"true"`.
+
+## Cluster settings that live outside git
+
+Argo CD itself was installed by hand (Part 1), so these settings exist only on the cluster. Re-apply them after any reinstall.
+
+- **Self-heal backoff** (found by the first self-test, 9 Oct). By default, Argo CD waits longer before each consecutive self-heal: 2 s, times 3 each time, capped at 300 s, and it resets only after 330 s of calm. That protects real clusters from two tools fighting over one object. In this lab, drift is deliberate, so back-to-back experiments hit the cap: `bad-release` took 296 s. Lab setting:
+  ```bash
+  kubectl -n argocd patch configmap argocd-cmd-params-cm --type merge -p '{"data":{"controller.self.heal.backoff.cap.seconds":"30","controller.self.heal.backoff.cooldown.seconds":"60"}}'
+  kubectl -n argocd rollout restart statefulset argocd-application-controller
+  ```
+- **Reconciliation every 60 s** (L7): `timeout.reconciliation: 60s` in `argocd-cm`.
+- **Node inotify limit:** `fs.inotify.max_user_instances = 512` in `/etc/sysctl.d/99-inotify.conf`. The default of 128 ran out with Kubernetes and Coolify on one VM (`kubectl logs -f` failed with "too many open files").
