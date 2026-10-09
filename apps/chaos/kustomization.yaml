@@ -7,6 +7,7 @@ resources:
 - deployment.yaml
 - ingress.yaml
 - networkpolicies.yaml
+- selftest-cronjob.yaml
 images:
 - name: ghcr.io/het101/chaos-api
-  newTag: 6eb5e12
+  newTag: a33a5fa

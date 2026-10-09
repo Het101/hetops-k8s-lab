@@ -63,3 +63,16 @@ Paste Claude the script's last line (for example `kill-pod: recovered in 4.1 s`)
 kubectl -n chaos patch configmap chaos-config --type merge -p '{"data":{"enabled":"false"}}'
 unset CHAOS_BYPASS
 ```
+
+## The nightly self-test
+
+After game day, the lab runs all 15 experiments by itself every night at 03:00 India time (`apps/chaos/selftest-cronjob.yaml`). The verdict goes to HetOps Status.
+
+- **Needs owner mode:** `chaos-config` `enabled` must be `"owner"` (or `"true"` once public). With `"false"`, the run aborts and reports down.
+- **Run it now:**
+  ```bash
+  kubectl -n chaos create job selftest-now --from=cronjob/chaos-selftest
+  kubectl -n chaos logs -f job/selftest-now
+  ```
+- **Past nights:** `kubectl -n chaos get jobs`. Each one's log ends with its verdict line.
+- **Go-public gate:** 3 green nights in a row. Then set `enabled` to `"true"`.
