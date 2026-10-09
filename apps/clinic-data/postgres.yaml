@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: postgres
   namespace: clinic-data
+  labels: { app: postgres }    # so the ServiceMonitor can find it
 spec:
   clusterIP: None              # "headless": no virtual IP; DNS returns the pod's own IP
   selector:
@@ -10,6 +11,8 @@ spec:
   ports:
   - name: pg
     port: 5432
+  - name: metrics              # postgres-exporter, for Prometheus
+    port: 9187
 ---
 apiVersion: apps/v1
 kind: StatefulSet              # like a Deployment, but pods get fixed names (postgres-0) and their own disk
@@ -67,6 +70,26 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /var/lib/postgresql/data
+      - name: exporter         # a SIDECAR: a second container in the same pod, sharing its network
+        image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+        ports:
+        - name: metrics
+          containerPort: 9187
+        env:                   # it talks to Postgres over localhost, inside the pod
+        - { name: DATA_SOURCE_URI, value: "localhost:5432/postgres?sslmode=disable" }
+        - { name: DATA_SOURCE_USER, value: postgres }
+        - name: DATA_SOURCE_PASS
+          valueFrom:
+            secretKeyRef: { name: postgres-auth, key: POSTGRES_PASSWORD }
+        resources:
+          requests: { cpu: 10m, memory: 32Mi }
+          limits: { cpu: 50m, memory: 64Mi }
+        securityContext:
+          runAsUser: 65534     # "nobody": the exporter does not need the postgres user
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
   volumeClaimTemplates:        # one disk PER POD, created automatically: data-postgres-0
   - metadata:
       name: data

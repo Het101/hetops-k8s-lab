@@ -14,3 +14,11 @@ spec:
   namespaceSelector: { matchNames: [chaos] }
   selector: { matchLabels: { app: chaos-api } }
   endpoints: [{ port: http, path: /metrics, interval: 30s }]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: postgres, namespace: monitoring }
+spec:
+  namespaceSelector: { matchNames: [clinic-data] }
+  selector: { matchLabels: { app: postgres } }
+  endpoints: [{ port: metrics, interval: 30s }]
