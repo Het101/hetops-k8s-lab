@@ -1,0 +1,33 @@
+# Every night the lab tests itself: all 15 experiments in turn, each checked against its recovery target.
+# The verdict goes to HetOps Status (an Uptime Kuma push monitor), which alerts on "down" and on silence.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: chaos-selftest, namespace: chaos }
+spec:
+  schedule: "0 3 * * *"
+  timeZone: Asia/Kolkata           # 03:00 India time, whatever the node's clock says
+  concurrencyPolicy: Forbid        # never two self-tests at once
+  startingDeadlineSeconds: 3600    # missed by more than an hour (node down)? skip that night
+  successfulJobsHistoryLimit: 7    # a week of results: kubectl -n chaos get jobs
+  failedJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 0              # a failed night is a result, not something to retry
+      activeDeadlineSeconds: 3600
+      template:
+        metadata: { labels: { app: chaos-selftest } }
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false   # it only talks to chaos-api over HTTP; no Kubernetes access at all
+          securityContext: { runAsNonRoot: true, runAsUser: 1000, seccompProfile: { type: RuntimeDefault } }
+          containers:
+          - name: selftest
+            image: ghcr.io/het101/chaos-api   # same image as chaos-api, different command
+            command: [node, src/selftest.js]
+            env:
+            - { name: BYPASS_TOKEN, valueFrom: { secretKeyRef: { name: chaos-secrets, key: BYPASS_TOKEN } } }
+            - { name: PUSH_URL, valueFrom: { secretKeyRef: { name: chaos-secrets, key: PUSH_URL, optional: true } } }
+            resources:
+              requests: { cpu: 10m, memory: 32Mi }
+              limits: { cpu: 100m, memory: 64Mi }
+            securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
