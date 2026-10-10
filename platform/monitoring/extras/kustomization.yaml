@@ -8,3 +8,4 @@ resources:
 - dashboards/lab-visitors.yaml
 - dashboards/lab-internals.yaml
 - dashboards/lab-chaos.yaml
+- dashboards/lab-slo.yaml

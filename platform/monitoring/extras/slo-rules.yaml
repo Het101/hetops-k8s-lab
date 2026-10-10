@@ -22,3 +22,21 @@ spec:
       expr: (sum(rate(chaos_visits_total{result="bad"}[3d])) or vector(0)) / sum(rate(chaos_visits_total[3d]))
     - record: lab:visits_bad:ratio_rate7d
       expr: (sum(rate(chaos_visits_total{result="bad"}[7d])) or vector(0)) / sum(rate(chaos_visits_total[7d]))
+  # Budget and burn rates, built on the ratios above. 0.01 = the 1% error budget (99% SLO).
+  - name: lab-slo-budget
+    interval: 30s
+    rules:
+    - record: lab:slo_budget_remaining   # 1 = untouched, 0 = all spent, below 0 = SLO broken
+      expr: 1 - lab:visits_bad:ratio_rate7d / 0.01
+    - record: lab:slo_burn_rate          # 1 = spending exactly the budget over 7 days
+      expr: lab:visits_bad:ratio_rate5m / 0.01
+      labels: { window: 5m }
+    - record: lab:slo_burn_rate
+      expr: lab:visits_bad:ratio_rate30m / 0.01
+      labels: { window: 30m }
+    - record: lab:slo_burn_rate
+      expr: lab:visits_bad:ratio_rate1h / 0.01
+      labels: { window: 1h }
+    - record: lab:slo_burn_rate
+      expr: lab:visits_bad:ratio_rate6h / 0.01
+      labels: { window: 6h }
