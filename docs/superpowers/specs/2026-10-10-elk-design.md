@@ -11,7 +11,7 @@
 | Operator | ECK (Elastic Cloud on Kubernetes) **3.5.0**, Helm chart `eck-operator` from `https://helm.elastic.co` |
 | Version | Elastic Stack **9.5.5** (ARM64 images) |
 | Elasticsearch | `lab-logs`: 1 node, 1 GiB heap, 2 GiB memory limit, 10 Gi `local-path` volume, `node.store.allow_mmap: false` |
-| Kibana | `lab-kibana`: 1 GiB memory limit, plain HTTP inside the cluster |
+| Kibana | `lab-kibana`: 1 GiB Node heap, 1.5 GiB memory limit (a 700 MB heap aborted on first start, E1), plain HTTP inside the cluster |
 | Shipper | Filebeat (ECK `Beat` resource) as a DaemonSet |
 | Retention | 3 days, in git: Filebeat loads an ILM policy from a ConfigMap (roll over daily or at 2 GB, delete after 3 days) |
 | Disk guard | `local-path` does not enforce the 10Gi request, so the volume is the host's root disk (shared with Coolify). Absolute watermarks stop Elasticsearch while the host still has free space: low 30gb, high 25gb, flood_stage 20gb |
