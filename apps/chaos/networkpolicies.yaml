@@ -42,6 +42,10 @@ spec:
   - to:                                  # Cloudflare Turnstile verification (internet, HTTPS only)
     - ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] }
     ports: [{ protocol: TCP, port: 443 }]
+  - to:                                  # Prometheus: the error budget (fixed read-only queries, sub-project 3)
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+      podSelector: { matchLabels: { app.kubernetes.io/name: prometheus } }
+    ports: [{ protocol: TCP, port: 9090 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

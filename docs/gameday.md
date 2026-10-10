@@ -92,3 +92,18 @@ Argo CD itself was installed by hand (Part 1), so these settings exist only on t
   kubectl -n ingress-nginx patch deploy ingress-nginx-controller --type=json -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--enable-metrics=true"}]'
   ```
 - **Node inotify limit:** `fs.inotify.max_user_instances = 512` in `/etc/sysctl.d/99-inotify.conf`. The default of 128 ran out with Kubernetes and Coolify on one VM (`kubectl logs -f` failed with "too many open files").
+
+## Error budget freeze (sub-project 3)
+
+chaos-api freezes visitor chaos when the 7-day error budget is spent (`lab:slo_budget_remaining <= FREEZE_AT`) and reopens at `REOPEN_AT`. The defaults are 0 and 0.05, in code. The keys live in `chaos-config`, whose `/data` Argo CD ignores, so set them with kubectl, never in git.
+
+- Test a freeze without spending budget:
+  ```bash
+  kubectl -n chaos patch cm chaos-config --type merge -p '{"data":{"FREEZE_AT":"0.99","REOPEN_AT":"0.995"}}'
+  ```
+- Restore the defaults:
+  ```bash
+  kubectl -n chaos patch cm chaos-config --type json -p '[{"op":"remove","path":"/data/FREEZE_AT"},{"op":"remove","path":"/data/REOPEN_AT"}]'
+  ```
+- While frozen, `CHAOS_BYPASS` requests (game day, the self-test) still run.
+- If Prometheus is unreachable, the lab stays open (fail-open), and `SLIMissing` pages instead.
