@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: logging
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "0" }
+spec:
+  project: logging
+  sources:
+  - repoURL: https://helm.elastic.co
+    chart: eck-operator
+    targetRevision: 3.5.0                      # pinned; upgrades are a reviewed one-line PR
+    helm:
+      releaseName: eck
+      valuesObject:
+        managedNamespaces: [logging]           # the operator watches and acts only here, not cluster-wide
+        resources:
+          requests: { cpu: 50m, memory: 150Mi }
+          limits: { memory: 300Mi }
+        telemetry: { disabled: true }
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: platform/logging                     # Elasticsearch, Kibana, Filebeat, the Kibana ingress
+  destination: { server: https://kubernetes.default.svc, namespace: logging }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]   # the ECK CRDs are too big for client-side apply
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        pod-security.kubernetes.io/enforce: privileged          # Filebeat runs as root with read-only hostPath log mounts
+        pod-security.kubernetes.io/warn: baseline
+    retry: { limit: 8, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }   # first sync waits for the operator's webhook

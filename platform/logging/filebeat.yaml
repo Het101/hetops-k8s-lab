@@ -1,0 +1,93 @@
+# Filebeat, one per node, shipping container logs from the lab namespaces only (never Coolify or anything else on the VM).
+# Adapted from ECK's filebeat_autodiscover recipe (v3.5.0): templates with a namespace condition instead of hints,
+# no hostNetwork, read-only mounts, containerd paths only.
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: lab-filebeat
+  namespace: logging
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  type: filebeat
+  version: 9.5.5
+  elasticsearchRef: { name: lab-logs }
+  config:
+    filebeat.autodiscover.providers:
+    - type: kubernetes
+      node: ${NODE_NAME}
+      templates:
+      - condition:
+          or:
+          - equals: { kubernetes.namespace: clinic }
+          - equals: { kubernetes.namespace: clinic-data }
+          - equals: { kubernetes.namespace: chaos }
+          - equals: { kubernetes.namespace: ingress-nginx }
+        config:
+        - type: filestream
+          id: lab-${data.kubernetes.pod.name}-${data.kubernetes.container.id}
+          paths: ["/var/log/containers/*${data.kubernetes.container.id}.log"]
+          parsers: [{ container: {} }]
+          prospector.scanner: { fingerprint.enabled: true, fingerprint.length: 64, symlinks: true }   # 64 B: quiet containers still ship
+          file_identity.fingerprint: {}
+    processors:
+    # The Fastify apps log JSON; decode it under app.* so it cannot clash with Filebeat's own fields. nginx lines stay text.
+    - decode_json_fields: { fields: [message], target: app, process_array: false, max_depth: 2, add_error_key: false }
+    setup.template.settings.index.number_of_replicas: 0   # one node: a replica could never be placed (health would be yellow)
+    # Retention in git: roll over daily, delete after 3 days (the default Filebeat policy never deletes).
+    setup.ilm.policy_file: /etc/filebeat-ilm/policy.json
+    setup.ilm.overwrite: true
+  daemonSet:
+    podTemplate:
+      spec:
+        serviceAccountName: filebeat
+        automountServiceAccountToken: true
+        terminationGracePeriodSeconds: 30
+        containers:
+        - name: filebeat
+          securityContext: { runAsUser: 0 }   # the node's log files are root-owned
+          env:
+          - name: NODE_NAME
+            valueFrom: { fieldRef: { fieldPath: spec.nodeName } }
+          resources:
+            requests: { cpu: 50m, memory: 100Mi }
+            limits: { memory: 250Mi }
+          volumeMounts:
+          - { name: varlogcontainers, mountPath: /var/log/containers, readOnly: true }
+          - { name: varlogpods, mountPath: /var/log/pods, readOnly: true }
+          - { name: ilm-policy, mountPath: /etc/filebeat-ilm, readOnly: true }
+        volumes:
+        - { name: varlogcontainers, hostPath: { path: /var/log/containers } }
+        - { name: varlogpods, hostPath: { path: /var/log/pods } }
+        - { name: ilm-policy, configMap: { name: filebeat-ilm-policy } }
+        # ECK also adds a beat-data hostPath (/var/lib/logging/lab-filebeat/filebeat-data) for the read positions; see docs/gameday.md.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: filebeat-ilm-policy, namespace: logging }
+data:
+  policy.json: |
+    {"policy": {"phases": {
+      "hot": {"actions": {"rollover": {"max_age": "1d", "max_primary_shard_size": "2gb"}}},
+      "delete": {"min_age": "3d", "actions": {"delete": {}}}
+    }}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: filebeat, namespace: logging }
+---
+# Read-only: autodiscover needs pod, node and namespace metadata (plus owners) to label each log line.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: lab-filebeat }
+rules:
+- { apiGroups: [""], resources: [namespaces, pods, nodes], verbs: [get, list, watch] }
+- { apiGroups: [apps], resources: [replicasets], verbs: [get, list, watch] }
+- { apiGroups: [batch], resources: [jobs], verbs: [get, list, watch] }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: lab-filebeat }
+subjects: [{ kind: ServiceAccount, name: filebeat, namespace: logging }]
+roleRef: { kind: ClusterRole, name: lab-filebeat, apiGroup: rbac.authorization.k8s.io }
