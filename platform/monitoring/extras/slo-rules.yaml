@@ -40,3 +40,51 @@ spec:
     - record: lab:slo_burn_rate
       expr: lab:visits_bad:ratio_rate6h / 0.01
       labels: { window: 6h }
+  # Alerts. Only team=lab alerts reach Telegram (see alertmanager.config in values.yaml).
+  # One experiment or one namespace nuke stays below every threshold; ~20 experiments in an hour does not.
+  - name: lab-slo-alerts
+    rules:
+    # Two windows must agree: the long one proves it matters, the short one proves it is still happening.
+    # The windows carry different `window` labels, so `and` must ignore that label or nothing ever matches.
+    - alert: SLOBurnFast
+      expr: lab:slo_burn_rate{window="1h"} > 14.4 and ignoring(window) lab:slo_burn_rate{window="5m"} > 14.4
+      labels: { team: lab, severity: critical }
+      annotations:
+        summary: "Error budget burning fast: {{ $value | printf \"%.1f\" }}x over 1h"
+        description: "At this pace the whole 7-day budget is gone in under 12 hours. Check the Clinic lab — SLO dashboard."
+    - alert: SLOBurnSlow
+      expr: lab:slo_burn_rate{window="6h"} > 6 and ignoring(window) lab:slo_burn_rate{window="30m"} > 6
+      labels: { team: lab, severity: warning }
+      annotations:
+        summary: "Error budget burning steadily: {{ $value | printf \"%.1f\" }}x over 6h"
+        description: "At this pace the 7-day budget is gone in about a day."
+    - alert: SLOBudgetExhausted
+      expr: lab:slo_budget_remaining < 0
+      for: 10m
+      labels: { team: lab, severity: warning }
+      annotations:
+        summary: "The 99% / 7-day SLO is broken (budget {{ $value | humanizePercentage }})"
+        description: "More than 1% of visits in the last 7 days were bad."
+    # Symptom alerts above say users are hurting; this cause alert says why. `for: 3m` lets a normal
+    # kill-postgres (about 30-60 s) heal on its own without paging.
+    - alert: DatabaseUnreachable
+      expr: (max(pg_up{job="postgres"}) or vector(0)) == 0
+      for: 3m
+      labels: { team: lab, severity: critical }
+      annotations:
+        summary: "Postgres has been unreachable for 3 minutes"
+        description: "pg_up is 0 or the exporter is gone. A kill-postgres should heal in about a minute; this one has not."
+    - alert: LabNotHealing
+      expr: sum(increase(chaos_experiments_total{status=~"timeout|error|action-failed"}[1h])) > 0
+      labels: { team: lab, severity: warning }
+      annotations:
+        summary: "A chaos experiment did not recover in the last hour"
+        description: "Open the Chaos experiments dashboard: the lab's self-healing failed at least once."
+    # Without the SLI every alert above goes silent, which looks exactly like "all good".
+    - alert: SLIMissing
+      expr: absent(chaos_visits_total)
+      for: 10m
+      labels: { team: lab, severity: critical }
+      annotations:
+        summary: "No SLI data for 10 minutes"
+        description: "chaos-api's prober is down or not scraped, so the SLO alerts cannot fire."
