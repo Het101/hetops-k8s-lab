@@ -1,0 +1,13 @@
+# Reached through the Cloudflare tunnel, behind the Access policy "owner-only" (like Grafana).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: kibana, namespace: logging }
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: kibana.hetops.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend: { service: { name: lab-kibana-kb-http, port: { number: 5601 } } }

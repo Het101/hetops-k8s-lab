@@ -1,0 +1,26 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: lab-kibana
+  namespace: logging
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  version: 9.5.5
+  count: 1
+  elasticsearchRef: { name: lab-logs }
+  http:
+    tls: { selfSignedCertificate: { disabled: true } }   # plain HTTP in the cluster; Cloudflare terminates TLS outside
+  config:
+    server.publicBaseUrl: https://kibana.hetops.dev
+    telemetry.optIn: false
+    telemetry.allowChangingOptInStatus: false
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+        env: [{ name: NODE_OPTIONS, value: "--max-old-space-size=700" }]
+        resources:
+          requests: { cpu: 100m, memory: 768Mi }
+          limits: { memory: 1Gi }

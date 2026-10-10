@@ -107,3 +107,12 @@ chaos-api freezes visitor chaos when the 7-day error budget is spent (`lab:slo_b
   ```
 - While frozen, `CHAOS_BYPASS` requests (game day, the self-test) still run.
 - If Prometheus is unreachable, the lab stays open (fail-open), and `SLIMissing` pages instead.
+
+## Logging (ELK)
+
+- Kibana: https://kibana.hetops.dev (Cloudflare tunnel hostname plus an Access app with `owner-only`, set by hand like Grafana). Log in as `elastic`; read the password straight into the clipboard or a password manager, never into chat:
+  ```bash
+  kubectl -n logging get secret lab-logs-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d
+  ```
+- Retention: 3 days (ILM policy from the `filebeat-ilm-policy` ConfigMap). Disk guard: Elasticsearch stops allocating with less than 30 GB free on the host, and blocks writes below 20 GB.
+- Host paths written by the stack (clean up only after removing the `logging` app): the local-path volume under `/opt/local-path-provisioner/`, and Filebeat's read positions at `/var/lib/logging/lab-filebeat/`.

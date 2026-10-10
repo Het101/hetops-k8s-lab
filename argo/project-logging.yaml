@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject                  # ECK needs cluster-wide objects (CRDs, ClusterRoles, a webhook); "lab" must not
+metadata:
+  name: logging
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }   # the project must exist before the app that uses it
+spec:
+  description: ELK (ECK operator, Elasticsearch, Kibana, Filebeat) for the chaos lab
+  sourceRepos:
+  - https://github.com/Het101/hetops-k8s-lab.git
+  - https://helm.elastic.co
+  destinations:
+  - { server: https://kubernetes.default.svc, namespace: logging }
+  clusterResourceWhitelist:
+  - { group: '*', kind: '*' }

@@ -1,0 +1,35 @@
+# One small Elasticsearch node for the lab's logs (docs/superpowers/specs/2026-10-10-elk-design.md).
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: lab-logs
+  namespace: logging
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"                                         # after the operator and its CRDs
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true         # the CRD arrives in the same sync
+spec:
+  version: 9.5.5
+  nodeSets:
+  - name: default
+    count: 1
+    config:
+      node.store.allow_mmap: false   # no vm.max_map_count change on the shared host
+      # local-path does not enforce the 10Gi request: the volume is the host's root disk, shared with Coolify.
+      # Absolute free-space floors make Elasticsearch stop placing (then writing) data long before the host is full.
+      cluster.routing.allocation.disk.watermark.low: 30gb
+      cluster.routing.allocation.disk.watermark.high: 25gb
+      cluster.routing.allocation.disk.watermark.flood_stage: 20gb
+    podTemplate:
+      spec:
+        containers:
+        - name: elasticsearch
+          env: [{ name: ES_JAVA_OPTS, value: "-Xms1g -Xmx1g" }]   # heap = half the memory limit
+          resources:
+            requests: { cpu: 250m, memory: 2Gi }
+            limits: { memory: 2Gi }
+    volumeClaimTemplates:
+    - metadata: { name: elasticsearch-data }   # this exact name is what ECK mounts as the data directory
+      spec:
+        storageClassName: local-path
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 10Gi } }
