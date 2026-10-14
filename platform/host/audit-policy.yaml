@@ -1,0 +1,27 @@
+# Kubernetes API audit policy (SIEM track, lab T1). Applied by hand on the node: copy to
+# /etc/kubernetes/audit/policy.yaml (docs/gameday.md). Rules are first-match, top to bottom.
+#
+# Goal: record who changed what, and who read Secrets, without logging the thousands of
+# reads controllers make every minute, and without ever logging a Secret's contents.
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages: [RequestReceived]          # one event per request (ResponseComplete), not two
+rules:
+# Noise: health checks, version probes, events.
+- level: None
+  nonResourceURLs: ["/healthz*", "/livez*", "/readyz*", "/version", "/metrics", "/openapi*"]
+- level: None
+  resources: [{ group: "", resources: [events] }, { group: events.k8s.io, resources: [events] }]
+# Leases are renewed every few seconds by leader election and the kubelet.
+- level: None
+  resources: [{ group: coordination.k8s.io, resources: [leases] }]
+# Secrets, ConfigMaps and token reviews: metadata only (who, what, when), never the body.
+- level: Metadata
+  resources:
+  - { group: "", resources: [secrets, configmaps] }
+  - { group: authentication.k8s.io, resources: [tokenreviews] }
+# Every write, including pods/exec and pods/portforward (they are "create" on a subresource).
+- level: Request
+  verbs: [create, update, patch, delete, deletecollection]
+# Everything else (get/list/watch on non-secret objects): not logged.
+- level: None

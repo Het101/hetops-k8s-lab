@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: kibana
-        env: [{ name: NODE_OPTIONS, value: "--max-old-space-size=1024" }]   # 700 aborted with exit 134 (JS heap OOM) during first-start migrations (E1)
+        env: [{ name: NODE_OPTIONS, value: "--max-old-space-size=1280" }]   # 700 aborted (exit 134, E1); Security detection engine needs more (SIEM T1)
         resources:
-          requests: { cpu: 100m, memory: 1Gi }
-          limits: { memory: 1536Mi }
+          requests: { cpu: 100m, memory: 1280Mi }
+          limits: { memory: 2Gi }

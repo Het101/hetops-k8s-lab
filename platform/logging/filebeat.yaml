@@ -14,6 +14,15 @@ spec:
   version: 9.5.5
   elasticsearchRef: { name: lab-logs }
   config:
+    # The API server audit log (SIEM T1), written on the node by kube-apiserver. One JSON event per line,
+    # decoded under k8s_audit.* so it cannot clash with Filebeat's own fields.
+    filebeat.inputs:
+    - type: filestream
+      id: k8s-audit
+      paths: [/var/log/kubernetes/audit/audit.log]
+      parsers: [{ ndjson: { target: k8s_audit, add_error_key: true } }]
+      fields: { log_source: k8s-audit }
+      fields_under_root: true
     filebeat.autodiscover.providers:
     - type: kubernetes
       node: ${NODE_NAME}
@@ -57,10 +66,12 @@ spec:
           - { name: varlogcontainers, mountPath: /var/log/containers, readOnly: true }
           - { name: varlogpods, mountPath: /var/log/pods, readOnly: true }
           - { name: ilm-policy, mountPath: /etc/filebeat-ilm, readOnly: true }
+          - { name: k8s-audit, mountPath: /var/log/kubernetes/audit, readOnly: true }
         volumes:
         - { name: varlogcontainers, hostPath: { path: /var/log/containers } }
         - { name: varlogpods, hostPath: { path: /var/log/pods } }
         - { name: ilm-policy, configMap: { name: filebeat-ilm-policy } }
+        - { name: k8s-audit, hostPath: { path: /var/log/kubernetes/audit, type: DirectoryOrCreate } }
         # ECK also adds a beat-data hostPath (/var/lib/logging/lab-filebeat/filebeat-data) for the read positions; see docs/gameday.md.
 ---
 apiVersion: v1
