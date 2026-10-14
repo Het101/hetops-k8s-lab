@@ -127,3 +127,9 @@ sudo platform/host/enable-audit.sh rollback                                     
 ```
 
 Filebeat ships `/var/log/kubernetes/audit/audit.log` to Elasticsearch under `k8s_audit.*` (`log_source: k8s-audit`). After a kubeadm upgrade, check the flags survived: kubeadm regenerates the manifest.
+
+## Falco (SIEM track, T2)
+
+- Runtime IDS on the node (modern eBPF). Alerts: `kubectl -n falco logs ds/falco -c falco`, and in Kibana `kubernetes.namespace : "falco"` (fields under `falco.*`).
+- Tuning lives in `argo/apps/falco.yaml` (`customRules`). Exempt by the narrowest field that explains *why* a caller is legitimate; never disable a rule wholesale.
+- **Manual Argo CD sync with kubectl:** a patched `operation` uses only the options inside it, not the app's `syncOptions`. Pass them: `kubectl -n argocd patch app falco --type merge -p '{"operation":{"initiatedBy":{"username":"owner"},"sync":{"revision":"9.2.0","syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}}'`
