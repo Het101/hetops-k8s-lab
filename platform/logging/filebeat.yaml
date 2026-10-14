@@ -48,6 +48,7 @@ spec:
           - equals: { kubernetes.namespace: clinic-data }
           - equals: { kubernetes.namespace: chaos }
           - equals: { kubernetes.namespace: ingress-nginx }
+          - equals: { kubernetes.namespace: falco }
         config:
         - type: filestream
           id: lab-${data.kubernetes.pod.name}-${data.kubernetes.container.id}
@@ -57,7 +58,22 @@ spec:
           file_identity.fingerprint: {}
     processors:
     # The Fastify apps log JSON; decode it under app.* so it cannot clash with Filebeat's own fields. nginx lines stay text.
-    - decode_json_fields: { fields: [message], target: app, process_array: false, max_depth: 2, add_error_key: false }
+    - decode_json_fields:
+        fields: [message]
+        target: app
+        process_array: false
+        max_depth: 2
+        add_error_key: false
+        when.not.equals: { kubernetes.namespace: falco }
+    # Falco's JSON uses the same names with other types (time is a string there, a number in the apps),
+    # so it gets its own prefix; sharing app.* would make Elasticsearch reject one side.
+    - decode_json_fields:
+        fields: [message]
+        target: falco
+        process_array: false
+        max_depth: 3
+        add_error_key: false
+        when.equals: { kubernetes.namespace: falco }
     setup.template.settings.index.number_of_replicas: 0   # one node: a replica could never be placed (health would be yellow)
     # Retention in git: roll over daily, delete after 3 days (the default Filebeat policy never deletes).
     setup.ilm.policy_file: /etc/filebeat-ilm/policy.json

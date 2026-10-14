@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject                  # runtime security tools need cluster-wide objects (ClusterRoles) and privileged pods
+metadata:
+  name: security
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  description: Falco (IDS) and CrowdSec (IPS) for the chaos lab (SIEM track)
+  sourceRepos:
+  - https://github.com/Het101/hetops-k8s-lab.git
+  - https://falcosecurity.github.io/charts
+  destinations:
+  - { server: https://kubernetes.default.svc, namespace: falco }
+  clusterResourceWhitelist:
+  - { group: rbac.authorization.k8s.io, kind: ClusterRole }
+  - { group: rbac.authorization.k8s.io, kind: ClusterRoleBinding }
