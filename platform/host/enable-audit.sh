@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Turns on Kubernetes API audit logging on this kubeadm node (SIEM track, lab T1).
 #   sudo platform/host/enable-audit.sh            apply
+#   sudo platform/host/enable-audit.sh reload     re-install the policy and restart the API server
 #   sudo platform/host/enable-audit.sh rollback   restore the backed-up manifest
 # The kubelet watches /etc/kubernetes/manifests and restarts kube-apiserver about 30-60 s after
 # the file changes. Running workloads are not affected; kubectl is unavailable meanwhile.
@@ -9,6 +10,15 @@ set -euo pipefail
 MANIFEST=/etc/kubernetes/manifests/kube-apiserver.yaml
 BACKUP=/root/kube-apiserver.yaml.before-audit   # outside manifests/: the kubelet would run any copy left there
 POLICY_SRC="$(dirname "$0")/audit-policy.yaml"
+
+if [[ "${1:-}" == reload ]]; then
+  # kube-apiserver reads its audit policy only at start. Re-install the policy, then move the
+  # manifest out and back so the kubelet recreates the static pod.
+  install -m 0644 "$POLICY_SRC" /etc/kubernetes/audit/policy.yaml
+  mv "$MANIFEST" /root/kube-apiserver.yaml.reloading && sleep 20 && mv /root/kube-apiserver.yaml.reloading "$MANIFEST"
+  echo "policy reloaded; the API server is back in about a minute"
+  exit 0
+fi
 
 if [[ "${1:-}" == rollback ]]; then
   cp "$BACKUP" "$MANIFEST" && echo "restored $MANIFEST from $BACKUP; the API server restarts in about a minute"

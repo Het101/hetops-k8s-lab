@@ -20,7 +20,12 @@ rules:
   resources:
   - { group: "", resources: [secrets, configmaps] }
   - { group: authentication.k8s.io, resources: [tokenreviews] }
-# Every write, including pods/exec and pods/portforward (they are "create" on a subresource).
+# Shells into pods, always. Since kubectl 1.31, exec/attach/port-forward go over a WebSocket whose
+# first request is an HTTP GET, so they are audited with verb "get", not "create" (found in T1:
+# a write-only rule missed them). Match the subresource, whatever the verb.
+- level: Metadata
+  resources: [{ group: "", resources: [pods/exec, pods/attach, pods/portforward] }]
+# Every write.
 - level: Request
   verbs: [create, update, patch, delete, deletecollection]
 # Everything else (get/list/watch on non-secret objects): not logged.
