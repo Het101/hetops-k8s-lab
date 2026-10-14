@@ -19,7 +19,9 @@ spec:
         container_runtime: containerd          # kubeadm uses containerd, not docker (log line format)
         agent:
           acquisition:
-          - { namespace: ingress-nginx, podName: ingress-nginx-controller-*, program: nginx }
+          # Poll instead of inotify (T3): the kubelet rotates container logs by replacing the file behind the
+          # /var/log/containers symlink; with inotify the agent logged "Waiting for ..." and read nothing for 11 h.
+          - { namespace: ingress-nginx, podName: ingress-nginx-controller-*, program: nginx, poll_without_inotify: true }
           env:
           - { name: COLLECTIONS, value: crowdsecurity/nginx }   # nginx parser + HTTP attack scenarios
           resources:
