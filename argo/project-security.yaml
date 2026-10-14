@@ -12,5 +12,6 @@ spec:
   destinations:
   - { server: https://kubernetes.default.svc, namespace: falco }
   clusterResourceWhitelist:
+  - { group: "", kind: Namespace }                     # CreateNamespace + managedNamespaceMetadata (T2: refused without it)
   - { group: rbac.authorization.k8s.io, kind: ClusterRole }
   - { group: rbac.authorization.k8s.io, kind: ClusterRoleBinding }
