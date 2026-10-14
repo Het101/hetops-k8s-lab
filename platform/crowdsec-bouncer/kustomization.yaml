@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: crowdsec
 resources:
 - cronjob.yaml
-- sealed-cloudflare-bouncer.yaml   # LAPI_KEY, CF_TOKEN, CF_ACCOUNT, CF_LIST (sealed by the owner)
+- sealed-cloudflare-bouncer.yaml   # LAPI_KEY, CF_TOKEN, CF_ZONE (sealed by the owner)
 configMapGenerator:
 - name: cloudflare-bouncer
   files: [bouncer.mjs]

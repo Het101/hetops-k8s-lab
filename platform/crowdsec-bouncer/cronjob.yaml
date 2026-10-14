@@ -1,11 +1,10 @@
-# Runs the bouncer every 5 minutes: a ban reaches Cloudflare's edge within about 5 minutes. Every minute was a
-# retry storm (T4): Cloudflare's list-write limiter answers 429 with retry-after 60, and a 60 s schedule kept
-# hitting it exactly as the window reset, so no write ever got through.
+# Runs the bouncer every 2 minutes: a ban reaches Cloudflare's edge within about 2 minutes. It writes the WAF rule
+# through the Rulesets API (normal limits) and only when the ban set changed.
 apiVersion: batch/v1
 kind: CronJob
 metadata: { name: cloudflare-bouncer, namespace: crowdsec }
 spec:
-  schedule: "*/5 * * * *"
+  schedule: "*/2 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
@@ -25,7 +24,7 @@ spec:
             env:
             - { name: LAPI_URL, value: http://crowdsec-service.crowdsec:8080 }
             - { name: ALLOW, value: "140.245.13.138" }   # this server: tests and status checks come from here
-            envFrom: [{ secretRef: { name: cloudflare-bouncer } }]   # LAPI_KEY, CF_TOKEN, CF_ACCOUNT, CF_LIST
+            envFrom: [{ secretRef: { name: cloudflare-bouncer } }]   # LAPI_KEY, CF_TOKEN, CF_ZONE
             resources:
               requests: { cpu: 10m, memory: 32Mi }
               limits: { memory: 96Mi }
