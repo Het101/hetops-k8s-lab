@@ -21,6 +21,14 @@ spec:
           json_output: true
           json_include_output_property: true
           priority: notice                     # warning and above is the signal; notice adds useful context
+        # Tuning (T2): the first run logged 725 alerts in minutes, nearly all chaos-api's legitimate calls to the
+        # Kubernetes API. Exempt only the namespaces whose job is to call it; anything else still alerts.
+        customRules:
+          lab-tuning.yaml: |-
+            - rule: Contact K8S API Server From Container
+              condition: and not k8s.ns.name in (chaos, argocd, monitoring, logging, falco, kube-system, ingress-nginx)
+              override:
+                condition: append
         resources:
           requests: { cpu: 50m, memory: 256Mi }
           limits: { memory: 512Mi }
