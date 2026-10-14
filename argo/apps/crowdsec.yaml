@@ -1,0 +1,46 @@
+# CrowdSec (SIEM track, T3): reads ingress-nginx access logs, recognises attack behaviour (scanners, brute force,
+# bad user agents, known CVE probes) and makes ban decisions. T3 is detect-only; T4 adds a bouncer that enforces
+# the decisions at Cloudflare's edge, where the real visitor IP is.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crowdsec
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "0" }
+spec:
+  project: security
+  source:
+    repoURL: https://crowdsecurity.github.io/helm-charts
+    chart: crowdsec
+    targetRevision: 0.24.2                     # pinned
+    helm:
+      releaseName: crowdsec
+      valuesObject:
+        container_runtime: containerd          # kubeadm uses containerd, not docker (log line format)
+        agent:
+          acquisition:
+          - { namespace: ingress-nginx, podName: ingress-nginx-controller-*, program: nginx }
+          env:
+          - { name: COLLECTIONS, value: crowdsecurity/nginx }   # nginx parser + HTTP attack scenarios
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 250Mi }
+        lapi:
+          env:
+          # Nothing leaves the server: no signal sharing with the CrowdSec network (and no community blocklist).
+          - { name: DISABLE_ONLINE_API, value: "true" }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 300Mi }
+          persistentVolume:
+            data: { storageClassName: local-path, size: 1Gi }
+            config: { storageClassName: local-path, size: 100Mi }
+  destination: { server: https://kubernetes.default.svc, namespace: crowdsec }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        pod-security.kubernetes.io/enforce: privileged   # the agent reads /var/log from the host
+    retry: { limit: 5, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }

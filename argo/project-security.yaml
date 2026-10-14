@@ -9,8 +9,10 @@ spec:
   sourceRepos:
   - https://github.com/Het101/hetops-k8s-lab.git
   - https://falcosecurity.github.io/charts
+  - https://crowdsecurity.github.io/helm-charts
   destinations:
   - { server: https://kubernetes.default.svc, namespace: falco }
+  - { server: https://kubernetes.default.svc, namespace: crowdsec }
   clusterResourceWhitelist:
   - { group: "", kind: Namespace }                     # CreateNamespace + managedNamespaceMetadata (T2: refused without it)
   - { group: rbac.authorization.k8s.io, kind: ClusterRole }

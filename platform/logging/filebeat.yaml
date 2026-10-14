@@ -49,6 +49,7 @@ spec:
           - equals: { kubernetes.namespace: chaos }
           - equals: { kubernetes.namespace: ingress-nginx }
           - equals: { kubernetes.namespace: falco }
+          - equals: { kubernetes.namespace: crowdsec }
         config:
         - type: filestream
           id: lab-${data.kubernetes.pod.name}-${data.kubernetes.container.id}
