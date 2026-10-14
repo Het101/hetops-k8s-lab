@@ -116,3 +116,14 @@ chaos-api freezes visitor chaos when the 7-day error budget is spent (`lab:slo_b
   ```
 - Retention: 3 days (ILM policy from the `filebeat-ilm-policy` ConfigMap). Disk guard: Elasticsearch stops allocating with less than 30 GB free on the host, and blocks writes below 20 GB.
 - Host paths written by the stack (clean up only after removing the `logging` app): the local-path volume under `/opt/local-path-provisioner/`, and Filebeat's read positions at `/var/lib/logging/lab-filebeat/`.
+
+## Kubernetes audit logging (SIEM track, T1)
+
+The API server writes an audit log (policy: `platform/host/audit-policy.yaml`: every write including `pods/exec`, Secret/ConfigMap access at metadata level only, controller reads dropped). It is a static-pod change, so it lives outside Argo CD:
+
+```bash
+cd ~/hetops-k8s-lab && git pull && sudo platform/host/enable-audit.sh          # backup + apply
+sudo platform/host/enable-audit.sh rollback                                     # if kubectl is not back in 3 minutes
+```
+
+Filebeat ships `/var/log/kubernetes/audit/audit.log` to Elasticsearch under `k8s_audit.*` (`log_source: k8s-audit`). After a kubeadm upgrade, check the flags survived: kubeadm regenerates the manifest.
