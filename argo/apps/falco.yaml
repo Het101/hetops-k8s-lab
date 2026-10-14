@@ -1,0 +1,35 @@
+# Falco: runtime intrusion detection (SIEM track, T2). Watches system calls on the node with the modern eBPF
+# probe (no kernel module) and logs one JSON alert per rule hit to stdout; Filebeat ships them to Elasticsearch.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: falco
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "0" }
+spec:
+  project: security
+  source:
+    repoURL: https://falcosecurity.github.io/charts
+    chart: falco
+    targetRevision: 9.2.0                      # Falco 0.45; pinned, upgrades are a reviewed one-line PR
+    helm:
+      releaseName: falco
+      valuesObject:
+        driver: { kind: modern_ebpf }          # CO-RE eBPF: nothing compiled or loaded into the host OS
+        tty: false
+        falco:
+          json_output: true
+          json_include_output_property: true
+          priority: notice                     # warning and above is the signal; notice adds useful context
+        resources:
+          requests: { cpu: 50m, memory: 256Mi }
+          limits: { memory: 512Mi }
+  destination: { server: https://kubernetes.default.svc, namespace: falco }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        pod-security.kubernetes.io/enforce: privileged   # Falco needs privileged access to load its eBPF probe
+    retry: { limit: 5, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }
