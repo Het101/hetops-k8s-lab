@@ -1,9 +1,11 @@
-# Runs the bouncer every minute. A ban reaches Cloudflare's edge within about a minute of CrowdSec's decision.
+# Runs the bouncer every 5 minutes: a ban reaches Cloudflare's edge within about 5 minutes. Every minute was a
+# retry storm (T4): Cloudflare's list-write limiter answers 429 with retry-after 60, and a 60 s schedule kept
+# hitting it exactly as the window reset, so no write ever got through.
 apiVersion: batch/v1
 kind: CronJob
 metadata: { name: cloudflare-bouncer, namespace: crowdsec }
 spec:
-  schedule: "* * * * *"
+  schedule: "*/5 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
