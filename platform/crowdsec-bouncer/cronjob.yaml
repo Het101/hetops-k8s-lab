@@ -1,0 +1,33 @@
+# Runs the bouncer every minute. A ban reaches Cloudflare's edge within about a minute of CrowdSec's decision.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: cloudflare-bouncer, namespace: crowdsec }
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 50
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext: { runAsNonRoot: true, runAsUser: 1000, seccompProfile: { type: RuntimeDefault } }
+          containers:
+          - name: bouncer
+            image: node:22-alpine
+            command: [node, /bouncer/bouncer.mjs]
+            env:
+            - { name: LAPI_URL, value: http://crowdsec-service.crowdsec:8080 }
+            - { name: ALLOW, value: "140.245.13.138" }   # this server: tests and status checks come from here
+            envFrom: [{ secretRef: { name: cloudflare-bouncer } }]   # LAPI_KEY, CF_TOKEN, CF_ACCOUNT, CF_LIST
+            resources:
+              requests: { cpu: 10m, memory: 32Mi }
+              limits: { memory: 96Mi }
+            securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+            volumeMounts: [{ name: script, mountPath: /bouncer }]
+          volumes:
+          - { name: script, configMap: { name: cloudflare-bouncer } }

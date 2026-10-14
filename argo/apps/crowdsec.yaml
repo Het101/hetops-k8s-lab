@@ -9,13 +9,23 @@ metadata:
   annotations: { argocd.argoproj.io/sync-wave: "0" }
 spec:
   project: security
-  source:
-    repoURL: https://crowdsecurity.github.io/helm-charts
+  sources:
+  - repoURL: https://crowdsecurity.github.io/helm-charts
     chart: crowdsec
     targetRevision: 0.24.2                     # pinned
     helm:
       releaseName: crowdsec
       valuesObject:
+        config:
+          parsers:
+            s02-enrich:
+              # Never ban our own infrastructure (T3 banned this server when the test came from it).
+              own-infra-whitelist.yaml: |
+                name: hetops/own-infra-whitelist
+                description: Never ban HetOps' own servers
+                whitelist:
+                  reason: own infrastructure
+                  ip: ["140.245.13.138"]
         container_runtime: containerd          # kubeadm uses containerd, not docker (log line format)
         agent:
           acquisition:
@@ -37,6 +47,9 @@ spec:
           persistentVolume:
             data: { storageClassName: local-path, size: 1Gi }
             config: { storageClassName: local-path, size: 100Mi }
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: platform/crowdsec-bouncer              # T4: the Cloudflare list-sync bouncer
   destination: { server: https://kubernetes.default.svc, namespace: crowdsec }
   syncPolicy:
     automated: { prune: true, selfHeal: true }
