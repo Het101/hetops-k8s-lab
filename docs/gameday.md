@@ -133,3 +133,13 @@ Filebeat ships `/var/log/kubernetes/audit/audit.log` to Elasticsearch under `k8s
 - Runtime IDS on the node (modern eBPF). Alerts: `kubectl -n falco logs ds/falco -c falco`, and in Kibana `kubernetes.namespace : "falco"` (fields under `falco.*`).
 - Tuning lives in `argo/apps/falco.yaml` (`customRules`). Exempt by the narrowest field that explains *why* a caller is legitimate; never disable a rule wholesale.
 - **Manual Argo CD sync with kubectl:** a patched `operation` uses only the options inside it, not the app's `syncOptions`. Pass them: `kubectl -n argocd patch app falco --type merge -p '{"operation":{"initiatedBy":{"username":"owner"},"sync":{"revision":"9.2.0","syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}}'`
+
+## Real visitor IPs in ingress-nginx (SIEM track, T3)
+
+All public traffic arrives through cloudflared, so nginx saw the tunnel pod's IP. Trust Cloudflare's `CF-Connecting-IP` header, but **only from the pod network** (where cloudflared runs); anything else claiming that header is ignored, so it cannot be spoofed from outside:
+
+```bash
+kubectl -n ingress-nginx patch configmap ingress-nginx-controller --type merge -p '{"data":{"use-forwarded-headers":"true","forwarded-for-header":"CF-Connecting-IP","proxy-real-ip-cidr":"192.168.0.0/16"}}'
+```
+
+Set outside git (ingress-nginx was installed by hand). Re-apply after any reinstall.
