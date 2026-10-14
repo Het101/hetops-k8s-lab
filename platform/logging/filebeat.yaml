@@ -23,6 +23,21 @@ spec:
       parsers: [{ ndjson: { target: k8s_audit, add_error_key: true } }]
       fields: { log_source: k8s-audit }
       fields_under_root: true
+      processors:
+      # Normalise to ECS so the SIEM can show and correlate who/where (user.name, source.ip) like any other source.
+      - script:
+          lang: javascript
+          source: |
+            function process(event) {
+              var user = event.Get("k8s_audit.user.username");
+              if (user) event.Put("user.name", user);
+              var ips = event.Get("k8s_audit.sourceIPs");
+              if (ips && ips.length) event.Put("source.ip", ips[0]);
+              var ns = event.Get("k8s_audit.objectRef.namespace");
+              if (ns) event.Put("orchestrator.namespace", ns);
+              var verb = event.Get("k8s_audit.verb");
+              if (verb) event.Put("event.action", verb);
+            }
     filebeat.autodiscover.providers:
     - type: kubernetes
       node: ${NODE_NAME}
