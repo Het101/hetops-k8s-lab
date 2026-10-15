@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: clinic-data
+  annotations:
+    linkerd.io/inject: enabled      # mTLS track: every new pod here gets a Linkerd proxy
   labels:
     app.kubernetes.io/part-of: chaos-lab
     pod-security.kubernetes.io/enforce: restricted
@@ -11,6 +13,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: chaos
+  annotations:
+    linkerd.io/inject: enabled      # mTLS track: every new pod here gets a Linkerd proxy
   labels:
     app.kubernetes.io/part-of: chaos-lab
     pod-security.kubernetes.io/enforce: restricted

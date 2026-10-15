@@ -22,4 +22,6 @@ spec:
         app.kubernetes.io/part-of: chaos-lab
         pod-security.kubernetes.io/enforce: restricted
         pod-security.kubernetes.io/warn: restricted
+      annotations:
+        linkerd.io/inject: enabled      # mTLS track: every new pod here gets a Linkerd proxy
     retry: { limit: 10, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }   # ~20 min: outlasts a slow namespace deletion
