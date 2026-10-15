@@ -143,3 +143,32 @@ kubectl -n ingress-nginx patch configmap ingress-nginx-controller --type merge -
 ```
 
 Set outside git (ingress-nginx was installed by hand). Re-apply after any reinstall.
+
+## Linkerd service mesh (mTLS track)
+
+clinic, clinic-data, chaos and ingress-nginx are meshed: every hop between them is mTLS, and postgres accepts only the `api`, `worker`, `nightly-report` and `migrate` identities (`apps/clinic-data/mesh-policy.yaml`).
+
+- **Health:** `linkerd check` and `linkerd check --proxy -n clinic`. CLI: `curl --proto '=https' -sSfL https://run.linkerd.io/install-edge | LINKERD2_VERSION=edge-26.9.3 sh` (keep it on the control plane's version).
+- **Who talks to postgres:** `linkerd diagnostics proxy-metrics -n clinic-data sts/postgres | grep -oE 'client_id="[^"]+"' | sort | uniq -c`. Refusals: `kubectl -n clinic-data logs postgres-0 -c linkerd-proxy | grep "Connection denied"`.
+- **ingress-nginx is meshed by hand** (installed outside git). Re-apply after any reinstall:
+  ```bash
+  kubectl -n ingress-nginx patch deploy ingress-nginx-controller --type merge -p '{"spec":{"template":{"metadata":{"annotations":{"linkerd.io/inject":"enabled","config.linkerd.io/skip-inbound-ports":"80,443,8443"}}}}}'
+  ```
+  Inbound 80/443 (visitors) and 8443 (admission webhook) skip the proxy, so real client IPs and CrowdSec are unchanged; nginx's calls to the apps go through it.
+- **New namespace or workload in the mesh:** its NetworkPolicies must allow DNS, egress to namespace `linkerd`, and port **4143** wherever the app port is allowed (meshed clients connect to the server's proxy port). A namespace with default-deny and no DNS rule leaves the proxy unable to start (`Init:1/2` loop).
+- **PreSync hooks:** a hook runs before the sync phase. A hook that needs something new (a NetworkPolicy, a ServiceAccount) deadlocks the first sync. Ship the dependency in an earlier change.
+- **Postgres probes are exec, not TCP:** a kubelet TCP probe has no mesh identity and the postgres Server refuses it.
+
+### Certificates
+
+| | Validity | Where |
+|---|---|---|
+| Trust anchor (root CA) | until Oct 2036 | public cert in `platform/linkerd/trust-anchor.yaml`; **private key only in the password manager** |
+| Issuer (intermediate CA) | until **15 Oct 2027** | Sealed Secret `platform/linkerd/sealed-identity-issuer.yaml` |
+| Workload certificates | 24 h, renewed automatically | issued by `linkerd-identity` |
+
+**Yearly issuer rotation (before Oct 2027):** put the root key back in `~/linkerd-ca/ca.key`, run `bash platform/linkerd/make-certs.sh rotate-issuer`, commit the new sealed Secret, sync `linkerd`, then `kubectl -n linkerd rollout restart deploy/linkerd-identity` and `shred -u ~/linkerd-ca/ca.key`. Workloads pick up certificates from the new issuer within 24 h; the trust anchor does not change, so nothing else restarts.
+
+**Never paste a CA private key into chat or a ticket.** If one leaks, regenerate it (as on 15 Oct 2026, before the first deploy).
+
+**Roll back the mesh for one namespace:** remove `linkerd.io/inject: enabled` from it in git and restart its workloads. Delete `apps/clinic-data/mesh-policy.yaml` first, or postgres will refuse the unmeshed clients.
