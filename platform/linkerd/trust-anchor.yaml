@@ -1,0 +1,13 @@
+# Linkerd trust anchor (root CA certificate, public). Made by make-certs.sh; the private key is offline.
+identityTrustAnchorsPEM: |
+  -----BEGIN CERTIFICATE-----
+  MIIBjjCCATSgAwIBAgIUMWY3ln+bvxn3IxaeQvHMRm0BjhEwCgYIKoZIzj0EAwIw
+  JTEjMCEGA1UEAwwacm9vdC5saW5rZXJkLmNsdXN0ZXIubG9jYWwwHhcNMjYxMDE1
+  MTEzMDEwWhcNMzYxMDEyMTEzMDEwWjAlMSMwIQYDVQQDDBpyb290LmxpbmtlcmQu
+  Y2x1c3Rlci5sb2NhbDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABKlyeEt1ic8Y
+  y2bPTpAtu1Y+ZVTp2OEdfn2oBttggU4oTBwu7iv3mI0Jqg1iAMbDWz1KvSs1oXOg
+  nZNnS6vQVkGjQjBAMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0G
+  A1UdDgQWBBSF0EHN1/djxrRVtZiR/8ryzX5lPDAKBggqhkjOPQQDAgNIADBFAiEA
+  7ajM5DFtjNLabFG2My2RJ+s5o4McQZ9VJsMlH7BbaocCIDLpQnyS/+lGs4IJB7lY
+  aoDUNY6IDZEvixDb4A6gfhIl
+  -----END CERTIFICATE-----

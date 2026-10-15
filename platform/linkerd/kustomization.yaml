@@ -1,0 +1,3 @@
+# Only the issuer Secret is applied from here. trust-anchor.yaml is a Helm values file (read by argo/apps/linkerd.yaml).
+resources:
+- sealed-identity-issuer.yaml

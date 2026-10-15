@@ -1,0 +1,30 @@
+# Linkerd CNI plugin (mTLS track). The lab namespaces enforce Pod Security "restricted", which forbids the
+# NET_ADMIN init container Linkerd normally uses to redirect pod traffic into the proxy. The CNI plugin sets up
+# those iptables rules from the node instead, so meshed pods stay "restricted". Chained after Calico.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: linkerd-cni
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "0" }
+spec:
+  project: mesh
+  source:
+    repoURL: https://helm.linkerd.io/edge
+    chart: linkerd2-cni
+    targetRevision: 2026.9.3                   # edge-26.9.3; same version as the control plane
+    helm:
+      releaseName: linkerd-cni
+      valuesObject:
+        repairController: { enabled: true }    # restarts pods that started before the plugin was ready
+  destination: { server: https://kubernetes.default.svc, namespace: linkerd-cni }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        linkerd.io/cni-resource: "true"
+        config.linkerd.io/admission-webhooks: disabled
+        pod-security.kubernetes.io/enforce: privileged   # writes the CNI config and binary on the node
+    retry: { limit: 5, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }

@@ -1,0 +1,64 @@
+# Linkerd control plane (mTLS track): identity (a certificate authority that gives every meshed pod a
+# certificate named after its ServiceAccount), destination (service discovery and policy) and the proxy
+# injector (adds the proxy to pods in namespaces annotated linkerd.io/inject=enabled).
+#
+# Certificates: the trust anchor (root CA) is public and lives in platform/linkerd/trust-anchor.yaml; its
+# private key is kept OFFLINE. The issuer (intermediate CA, 1 year) is a Sealed Secret in platform/linkerd/.
+# Both are made by platform/linkerd/make-certs.sh. Rotation: docs/gameday.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: linkerd
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "0" }
+spec:
+  project: mesh
+  sources:
+  - repoURL: https://helm.linkerd.io/edge
+    chart: linkerd-crds
+    targetRevision: 2026.9.3
+    helm: { releaseName: linkerd-crds }
+  - repoURL: https://helm.linkerd.io/edge
+    chart: linkerd-control-plane
+    targetRevision: 2026.9.3
+    helm:
+      releaseName: linkerd-control-plane
+      valueFiles: [$repo/platform/linkerd/trust-anchor.yaml]
+      valuesObject:
+        cniEnabled: true                       # see linkerd-cni.yaml
+        identity:
+          issuer: { scheme: kubernetes.io/tls }  # read the issuer from the sealed Secret, not from values
+        disableHeartBeat: true                 # no daily phone-home CronJob
+        proxy:
+          resources:                           # defaults; namespaces can override with config.linkerd.io/* annotations
+            cpu: { request: 10m, limit: 100m }
+            memory: { request: 16Mi, limit: 64Mi }
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git   # the sealed issuer Secret
+    targetRevision: main
+    path: platform/linkerd
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git   # values only ($repo above), not rendered
+    targetRevision: main
+    ref: repo
+  destination: { server: https://kubernetes.default.svc, namespace: linkerd }
+  # The chart generates its webhook certificates (and a checksum of them) on every render, so Argo CD would
+  # always see a diff and keep restarting the injector. The first render is kept; later renders are ignored.
+  ignoreDifferences:
+  - { kind: Secret, name: linkerd-proxy-injector-k8s-tls, jsonPointers: [/data] }
+  - { kind: Secret, name: linkerd-sp-validator-k8s-tls, jsonPointers: [/data] }
+  - { kind: Secret, name: linkerd-policy-validator-k8s-tls, jsonPointers: [/data] }
+  - { group: admissionregistration.k8s.io, kind: MutatingWebhookConfiguration, jqPathExpressions: [".webhooks[].clientConfig.caBundle"] }
+  - { group: admissionregistration.k8s.io, kind: ValidatingWebhookConfiguration, jqPathExpressions: [".webhooks[].clientConfig.caBundle"] }
+  - { group: apps, kind: Deployment, jsonPointers: [/spec/template/metadata/annotations/checksum~1config] }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true, RespectIgnoreDifferences=true]
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        linkerd.io/is-control-plane: "true"
+        linkerd.io/control-plane-ns: linkerd
+        config.linkerd.io/admission-webhooks: disabled
+        pod-security.kubernetes.io/enforce: restricted   # with the CNI plugin, no pod here needs privileges
+      annotations:
+        linkerd.io/inject: disabled
+    retry: { limit: 8, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }
