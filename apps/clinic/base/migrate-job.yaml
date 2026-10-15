@@ -15,6 +15,7 @@ spec:
     metadata:
       labels: { app: migrate }
     spec:
+      serviceAccountName: migrate
       restartPolicy: Never
       securityContext:
         runAsNonRoot: true

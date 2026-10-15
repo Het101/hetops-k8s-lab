@@ -1,0 +1,30 @@
+# Identity-based access to postgres (mTLS track, L5). The NetworkPolicy already limits WHICH PODS may connect,
+# by label and namespace. This adds WHO may connect: only proxies holding a certificate for one of these
+# ServiceAccounts. Once a Server exists for a port, everything else on it is denied (accessPolicy: deny).
+# The exporter sidecar reaches postgres over localhost, which never passes through the proxy.
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata: { name: postgres, namespace: clinic-data }
+spec:
+  podSelector: { matchLabels: { app: postgres } }
+  port: 5432
+  proxyProtocol: opaque
+  accessPolicy: deny
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata: { name: clinic-db-clients, namespace: clinic-data }
+spec:
+  identityRefs:
+  - { kind: ServiceAccount, name: api, namespace: clinic }
+  - { kind: ServiceAccount, name: worker, namespace: clinic }
+  - { kind: ServiceAccount, name: nightly-report, namespace: clinic }
+  - { kind: ServiceAccount, name: migrate, namespace: clinic }
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata: { name: postgres-clients, namespace: clinic-data }
+spec:
+  targetRef: { group: policy.linkerd.io, kind: Server, name: postgres }
+  requiredAuthenticationRefs:
+  - { group: policy.linkerd.io, kind: MeshTLSAuthentication, name: clinic-db-clients }

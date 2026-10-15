@@ -5,3 +5,4 @@ resources:
 - sealed-postgres-auth.yaml
 - postgres.yaml
 - networkpolicy.yaml
+- mesh-policy.yaml
