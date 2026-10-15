@@ -8,7 +8,7 @@ spec:
     requests.cpu: 500m
     requests.memory: 1Gi
     limits.cpu: "1"
-    limits.memory: 1152Mi          # 1 GiB postgres + room for the metrics exporter sidecar (M5)
+    limits.memory: 1280Mi          # 1 GiB postgres + exporter sidecar (M5) + Linkerd proxy (mTLS)
     pods: "3"
     persistentvolumeclaims: "1"     # exactly one disk: Postgres
     requests.storage: 2Gi           # NEW: total disk space all PVCs together may ask for
@@ -40,8 +40,8 @@ spec:
   hard:
     requests.cpu: 250m
     requests.memory: 256Mi
-    limits.cpu: 500m
-    limits.memory: 256Mi
+    limits.cpu: "1"                # chaos-api + self-test, each with a Linkerd proxy (mTLS)
+    limits.memory: 512Mi
     pods: "4"
 ---
 apiVersion: v1
