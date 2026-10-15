@@ -55,9 +55,9 @@ spec:
           exec:
             command: [pg_isready, -U, postgres]
           periodSeconds: 5
-        livenessProbe:         # "still alive?": just checks the port is open
-          tcpSocket:
-            port: 5432
+        livenessProbe:         # "still alive?": asks Postgres too. A TCP probe from the kubelet has no mesh
+          exec:                # identity, so postgres's mTLS-only policy (L5) would refuse it and restart the pod
+            command: [pg_isready, -U, postgres]
           periodSeconds: 10
           failureThreshold: 6  # 6 x 10s = a full minute before a restart; databases deserve patience
         resources:

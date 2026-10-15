@@ -15,6 +15,7 @@ spec:
     metadata:
       labels: { app: api }
     spec:
+      serviceAccountName: api    # its mTLS identity: api.clinic.serviceaccount.identity.linkerd.cluster.local
       terminationGracePeriodSeconds: 20
       securityContext:
         runAsNonRoot: true

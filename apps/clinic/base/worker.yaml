@@ -13,6 +13,7 @@ spec:
     metadata:
       labels: { app: worker }
     spec:
+      serviceAccountName: worker
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

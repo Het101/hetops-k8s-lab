@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: clinic
 resources:
 - guardrails.yaml
+- serviceaccounts.yaml
 - sealed-clinic-db.yaml
 - sealed-clinic-internal.yaml
 - migrate-job.yaml
