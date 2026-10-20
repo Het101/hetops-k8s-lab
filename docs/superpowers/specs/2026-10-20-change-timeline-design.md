@@ -4,14 +4,14 @@
 
 **Why in the lab, and why now:** the lab already produces every kind of change on demand. The roadmap gate (two paying products) holds back the *SaaS*, not a lab feature. If the lab version proves useful, its event model and sources become the product's connectors.
 
-**Proposed decisions (owner to confirm before the plan):**
+**Decisions (owner, 2026-10-20):**
 
 - **A small service of its own** (`timeline`), not Elasticsearch queries.
   - Elasticsearch keeps the raw logs for 3 days and stays owner-only.
-  - The timeline keeps a curated, normalised change record for 14 days.
+  - The timeline keeps a curated, normalised change record for 14 days (owner confirmed).
 - **Code lives in `Het101/change-timeline`**, the placeholder repo. Its README is rewritten to describe the lab version.
 - **Public by default:** chaos experiments, Argo CD syncs and health, rollouts, scaling, restarts and lab alerts.
-- **Owner-only:** Falco detections and anything naming a person. Visitors are only ever "a visitor".
+- **Owner-only:** Falco detections (owner confirmed: not even as a generic public line) and anything naming a person. Visitors are only ever "a visitor".
 
 ## Event model
 
@@ -132,9 +132,3 @@ The owner types it lab-style, from complete manifest files.
 5. **T5 · chaos-api:** `emit`, env, self-test check.
 6. **T6 · lab page:** the "What changed" panel.
 7. **T7 · game day:** run 5 experiments. Check every one appears with its reactions, the alert pins its experiment as the top likely cause, and the timeline survives its own pod being killed. Then write the journal section.
-
-## Questions for the owner
-
-1. Falco detections owner-only (proposed), or shown publicly as a generic "a security rule fired"?
-2. 14-day retention: enough for the "last week" story, or 30 days?
-3. Reuse `Het101/change-timeline` (proposed), or a new repo?
