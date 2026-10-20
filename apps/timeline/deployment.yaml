@@ -20,7 +20,7 @@ spec:
         - { name: WATCH_NAMESPACES, value: "clinic,clinic-data,chaos" }
         - { name: ARGO_NAMESPACE, value: argocd }
         - { name: ALLOWED_ORIGIN, value: "https://hetops.dev" }
-        - name: INGEST_TOKEN                     # optional until part 4b seals it; until then every ingest is refused
+        - name: INGEST_TOKEN                     # sealed in 4b; without it every ingest is refused
           valueFrom: { secretKeyRef: { name: timeline-ingest, key: token, optional: true } }
         readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5 }
         livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10, failureThreshold: 3 }

@@ -39,7 +39,7 @@ alertmanager:
     resources:
       requests: { cpu: 10m, memory: 32Mi }
       limits: { memory: 128Mi }
-    secrets: [alertmanager-telegram]     # mounted at /etc/alertmanager/secrets/alertmanager-telegram/
+    secrets: [alertmanager-telegram, alertmanager-timeline]   # mounted at /etc/alertmanager/secrets/<name>/
   # Only our own alerts (label team=lab) notify, on Telegram. The chart's built-in alerts fire constantly
   # during chaos, so they stay visible in the UI but go to a receiver that does nothing.
   config:
@@ -48,6 +48,14 @@ alertmanager:
       receiver: "null"
       group_by: [alertname]
       routes:
+      # Lab alerts go to the Change Timeline first, then on to Telegram (continue: true), so Telegram gets
+      # every alert it got before.
+      - receiver: timeline
+        matchers: ['team="lab"']
+        group_wait: 10s
+        group_interval: 1m
+        repeat_interval: 4h
+        continue: true
       - receiver: telegram
         matchers: ['team="lab"']
         group_wait: 30s
@@ -60,6 +68,14 @@ alertmanager:
       - bot_token_file: /etc/alertmanager/secrets/alertmanager-telegram/bot-token
         chat_id: 718892351                 # not a secret: useless without the token
         send_resolved: true
+    - name: timeline                       # Change Timeline: firing and resolved, as webhook v4
+      webhook_configs:
+      - url: http://timeline.timeline.svc.cluster.local:8080/ingest/alertmanager
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /etc/alertmanager/secrets/alertmanager-timeline/token
     templates: ['/etc/alertmanager/config/*.tmpl']
 
 grafana:
