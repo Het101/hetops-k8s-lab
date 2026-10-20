@@ -1,5 +1,7 @@
 # Falco: runtime intrusion detection (SIEM track, T2). Watches system calls on the node with the modern eBPF
 # probe (no kernel module) and logs one JSON alert per rule hit to stdout; Filebeat ships them to Elasticsearch.
+# Change Timeline 4c: falcosidekick also posts warning-and-above alerts to the timeline (owner view only). Its
+# Authorization header is a sealed secret from the second source, security/falco.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,8 +10,8 @@ metadata:
   annotations: { argocd.argoproj.io/sync-wave: "0" }
 spec:
   project: security
-  source:
-    repoURL: https://falcosecurity.github.io/charts
+  sources:
+  - repoURL: https://falcosecurity.github.io/charts
     chart: falco
     targetRevision: 9.2.0                      # Falco 0.45; pinned, upgrades are a reviewed one-line PR
     helm:
@@ -33,6 +35,23 @@ spec:
         resources:
           requests: { cpu: 50m, memory: 256Mi }
           limits: { memory: 512Mi }
+        # Falco's own HTTP output cannot send an Authorization header, so falcosidekick relays. Enabling it also
+        # points Falco's http_output at it. The header (WEBHOOK_CUSTOMHEADERS) comes from existingSecret, which the
+        # chart loads after its own secret, so it wins; the address and priority stay here, in plain sight.
+        falcosidekick:
+          enabled: true
+          replicaCount: 1                        # one node
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 64Mi }
+          config:
+            existingSecret: falcosidekick-timeline
+            webhook:
+              address: http://timeline.timeline.svc.cluster.local:8080/ingest/falco
+              minimumpriority: warning           # the timeline drops anything lower anyway
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: security/falco                       # the sealed Authorization header for falcosidekick
   destination: { server: https://kubernetes.default.svc, namespace: falco }
   syncPolicy:
     automated: { prune: true, selfHeal: true }
