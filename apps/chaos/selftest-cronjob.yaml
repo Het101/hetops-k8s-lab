@@ -27,6 +27,7 @@ spec:
             env:
             - { name: BYPASS_TOKEN, valueFrom: { secretKeyRef: { name: chaos-secrets, key: BYPASS_TOKEN } } }
             - { name: PUSH_URL, valueFrom: { secretKeyRef: { name: chaos-secrets, key: PUSH_URL, optional: true } } }
+            - { name: TIMELINE_CHECK_URL, value: "https://lab.hetops.dev/timeline" }   # check every experiment reached the timeline
             resources:
               requests: { cpu: 10m, memory: 32Mi }
               limits: { cpu: 100m, memory: 64Mi }

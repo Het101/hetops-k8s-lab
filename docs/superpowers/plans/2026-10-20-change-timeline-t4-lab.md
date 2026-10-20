@@ -125,27 +125,93 @@ After an hour, Kibana's saved search `lab incidents` should show no `Contact K8S
 
 ---
 
-## 4b (next PR, preview): Alertmanager → timeline
+## 4b: turn on every pushed source (one token, three sealed copies)
 
-1. **Generate one token** and seal it twice. Sealed Secrets are namespace-bound, and chaos gets its own copy in T5.
+**Result of 4a (2026-10-20):**
+- All apps `Synced` / `Healthy`, the pod `2/2`, the PVC `Bound`, and `can-i` gave `yes no no yes no`.
+- **The first kill-pod** recovered in 8.2 s, and the timeline showed `argo/health Progressing` → `k8s/delete` → `argo/health Healthy`.
+- **Two surprises:**
+  1. `POST /ingest/chaos` from outside got **302**, not 404. Cloudflare Access stops it at the edge, before the cluster's own "no route".
+  2. The pod deletion was timed 6 s late, when shutdown finished. Fixed in change-timeline `7748ad1`: a deletion is now timed when the pod is stamped for deletion.
 
-   ```bash
-   TOKEN=$(openssl rand -hex 32)
-   kubectl -n timeline create secret generic timeline-ingest --from-literal=token=$TOKEN --dry-run=client -o yaml \
-     | kubeseal --format yaml > apps/timeline/sealed-timeline-ingest.yaml
-   kubectl -n monitoring create secret generic alertmanager-timeline --from-literal=token=$TOKEN --dry-run=client -o yaml \
-     | kubeseal --format yaml > platform/monitoring/extras/sealed-alertmanager-timeline.yaml
-   ```
+**What this branch changes:**
 
-   Keep `$TOKEN` in the password manager (T5 seals it for chaos too). **Never paste it in chat.**
-2. **Claude's PR** adds:
-   - both files to their kustomizations;
-   - `alertmanager-timeline` to `alertmanagerSpec.secrets`;
-   - a `timeline` webhook receiver (`credentials_file`);
-   - `continue: true` on the `team="lab"` route, so Telegram still gets every alert.
-3. **Verify:**
-   - the Alertmanager status page lists the receiver;
-   - a forced test alert reaches both Telegram and `/timeline` as `firing`, then `resolved`.
+| File | Change |
+|---|---|
+| `platform/monitoring/values.yaml` | The secret `alertmanager-timeline` is mounted. The `team="lab"` route goes to receiver `timeline` first with `continue: true`, so Telegram still gets everything. The new `timeline` webhook receiver (`send_resolved`, Bearer from `credentials_file`). |
+| `platform/monitoring/extras/kustomization.yaml` | + `sealed-alertmanager-timeline.yaml` (**you add the file**) |
+| `apps/timeline/kustomization.yaml` | + `sealed-timeline-ingest.yaml` (**you add the file**); image `7748ad1` |
+| `apps/chaos/kustomization.yaml` | chaos-api `6dc0b46` (reports experiments and budget freezes). It reads `TIMELINE_TOKEN` from `chaos-secrets` (**you add the key**) through its existing `envFrom`. |
+| `apps/chaos/networkpolicies.yaml` | chaos-api egress to namespace `timeline`, ports 8080 and 4143 |
+| `apps/chaos/selftest-cronjob.yaml` | `TIMELINE_CHECK_URL=https://lab.hetops.dev/timeline`: the self-test checks that every experiment reached the timeline |
+
+### Step 1: seal one token three times (on the server)
+
+```bash
+cd ~/hetops-k8s-lab && git fetch && git checkout lab/timeline-t4b && git pull
+TOKEN=$(openssl rand -hex 32)
+printf %s "$TOKEN" | kubectl -n timeline create secret generic timeline-ingest --from-file=token=/dev/stdin --dry-run=client -o yaml \
+  | kubeseal --format yaml > apps/timeline/sealed-timeline-ingest.yaml
+printf %s "$TOKEN" | kubectl -n monitoring create secret generic alertmanager-timeline --from-file=token=/dev/stdin --dry-run=client -o yaml \
+  | kubeseal --format yaml > platform/monitoring/extras/sealed-alertmanager-timeline.yaml
+printf %s "$TOKEN" | kubectl -n chaos create secret generic chaos-secrets --from-file=TIMELINE_TOKEN=/dev/stdin --dry-run=client -o yaml \
+  | kubeseal --format yaml --merge-into apps/chaos/sealed-chaos-secrets.yaml
+unset TOKEN
+```
+
+**Store the token?** You do not need it again. To rotate it, generate a new one and run the three commands again. **Never paste it in chat.**
+
+**Check it before committing.** Predict first: what should each check show?
+
+```bash
+grep -c "encryptedData" apps/timeline/sealed-timeline-ingest.yaml platform/monitoring/extras/sealed-alertmanager-timeline.yaml
+grep -n "TIMELINE_TOKEN\|BYPASS_TOKEN" apps/chaos/sealed-chaos-secrets.yaml | cut -c1-60
+for d in apps/timeline platform/monitoring/extras apps/chaos; do kubectl kustomize $d > /dev/null && echo "$d renders"; done
+git add -A && git commit -m "lab 4b: seal the timeline ingest token" && git push
+```
+
+**Expected:**
+- 1 and 1;
+- both keys are present (the merge kept `BYPASS_TOKEN`);
+- all three render.
+
+### Step 2: predict, then merge PR
+
+**Predict:**
+1. In what order do the four apps re-sync? Which pods restart?
+2. Will Telegram still get lab alerts? Why?
+3. After a kill-pod, which new event kinds appear that 4a did not have?
+
+**Then merge the PR.**
+
+### Step 3: verify
+
+```bash
+kubectl -n argocd get applications monitoring timeline chaos
+kubectl -n timeline logs deploy/timeline -c timeline | head -3     # no "INGEST_TOKEN is not set" now
+kubectl -n chaos get pods
+```
+
+**A test alert to both receivers:**
+
+```bash
+AM=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=alertmanager -o name | head -1)
+kubectl -n monitoring exec $AM -c alertmanager -- amtool alert add TimelineTest team=lab severity=warning \
+  --annotation=summary="Test alert for the Change Timeline" --end=$(date -u -d '+3 min' +%Y-%m-%dT%H:%M:%SZ) \
+  --alertmanager.url=http://localhost:9093
+sleep 30; curl -s "https://lab.hetops.dev/timeline?since=5m" | jq -r '.[] | "\(.at)  \(.source)/\(.kind)  \(.summary)"'
+```
+
+**Expected:**
+- `alert/firing  Test alert for the Change Timeline` on the timeline, plus the same alert in Telegram;
+- after about 3 to 8 minutes, `alert/resolved` in both.
+
+**A kill-pod with the bypass** (`read -rsp` as in 4a). Expected now:
+- `chaos/experiment  The owner ran "Kill a pod"`;
+- `k8s/delete` (timed before Argo's `Progressing`);
+- `chaos/experiment  "Kill a pod" recovered in … · cost …`.
+
+**Tonight's self-test** gains a 16th line, `timeline`. Expect `16/16 healed inside target` on the status page.
 
 ## 4c (later): Falco through falcosidekick
 

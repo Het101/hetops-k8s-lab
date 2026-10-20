@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - sealed-grafana-admin.yaml
 - sealed-alertmanager-telegram.yaml
+- sealed-alertmanager-timeline.yaml
 - ingress-nginx-metrics.yaml
 - servicemonitors.yaml
 - slo-rules.yaml
