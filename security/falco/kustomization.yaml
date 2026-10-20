@@ -1,0 +1,5 @@
+# Second source of the falco app: the Authorization header falcosidekick sends to the Change Timeline.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- sealed-falcosidekick-timeline.yaml   # 4c: you add this file (the lab sheet, step 1)

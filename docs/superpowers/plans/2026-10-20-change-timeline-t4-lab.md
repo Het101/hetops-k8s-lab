@@ -214,6 +214,91 @@ sleep 30; curl -s "https://lab.hetops.dev/timeline?since=5m" | jq -r '.[] | "\(.
 
 **Tonight's self-test** gains a 16th line, `timeline`. Expect `16/16 healed inside target` on the status page.
 
-## 4c (later): Falco through falcosidekick
+## 4c: Falco through falcosidekick (owner view only)
 
-The Falco chart's `falcosidekick.enabled: true`, with a webhook output to `/ingest/falco`. The `Authorization` header comes from a sealed secret in `falco`, delivered by a small `security`-project app. The result shows on the owner view only.
+**Result of 4b (2026-10-20):** the test alert reached Telegram and the timeline (firing, then resolved); a kill-pod on `0702813` logged, in true order, the chaos start, `k8s/delete` 0.2 s later, Progressing, Healthy, and "recovered in 8.6 s · no error budget spent"; each lab commit recorded one sync, for the app whose files changed.
+
+**Why a relay:** Falco's own `http_output` cannot send an `Authorization` header, and the timeline refuses ingest without one. falcosidekick (part of the Falco chart) receives every Falco alert and posts warning-and-above to `/ingest/falco` with the header. The timeline marks every Falco event `public: false`, so it shows only on the owner view.
+
+**What this branch changes:**
+
+| File | Change |
+|---|---|
+| `argo/apps/falco.yaml` | Two sources. The chart gains `falcosidekick` (1 replica, webhook to the timeline, `minimumpriority: warning`, `existingSecret: falcosidekick-timeline`). The second source, `security/falco`, carries the sealed header. |
+| `security/falco/kustomization.yaml` | + `sealed-falcosidekick-timeline.yaml` (**you add the file**) |
+| `apps/timeline/networkpolicies.yaml` | ingress from namespace `falco` (falcosidekick is not meshed, so it reaches port 8080 directly) |
+
+The header is the same ingest token as 4b, read back from the cluster: no new token, nothing to rotate in three places.
+
+### Step 1: seal the header (on the server)
+
+```bash
+cd ~/hetops-k8s-lab && git fetch && git checkout lab/timeline-t4c && git pull
+TOKEN=$(kubectl get secret timeline-ingest -n timeline -o jsonpath='{.data.token}' | base64 -d)
+printf 'Authorization:Bearer %s' "$TOKEN" | kubectl -n falco create secret generic falcosidekick-timeline \
+  --from-file=WEBHOOK_CUSTOMHEADERS=/dev/stdin --dry-run=client -o yaml \
+  | kubeseal --format yaml > security/falco/sealed-falcosidekick-timeline.yaml
+unset TOKEN
+```
+
+**Check it before committing.** Predict first: how many encrypted keys, and does the folder render?
+
+```bash
+grep -c "WEBHOOK_CUSTOMHEADERS" security/falco/sealed-falcosidekick-timeline.yaml
+kubectl kustomize security/falco > /dev/null && echo "security/falco renders"
+kubectl kustomize apps/timeline > /dev/null && echo "apps/timeline renders"
+git add -A && git commit -m "lab 4c: seal the falcosidekick header" && git push
+```
+
+**Expected:** `1`, then both render.
+
+### Step 2: predict, then merge the PR
+
+**Predict:**
+1. Which pods restart in `falco`, and which pod is new?
+2. A pod in namespace `falco` reads `/etc/shadow` as root. Which Falco rule fires, at which priority, and where does it show: the public timeline, the owner view, or both?
+3. A `kubectl exec` shell into a pod fires "Terminal shell in container". Why will it **not** reach the timeline?
+
+**Then merge the PR** (or tell Claude to).
+
+### Step 3: verify
+
+```bash
+kubectl get pods -n falco
+```
+
+**Expected:** the Falco DaemonSet pod restarted (its config now has `http_output`) and `falco-falcosidekick-…` is `1/1 Running`.
+
+Fire a warning-level rule from a throwaway pod (Predict 2):
+
+```bash
+kubectl run falco-test -n falco --rm -i --restart=Never --image=busybox:1.36 -- sh -c 'cat /etc/shadow > /dev/null; echo done'
+kubectl logs -n falco ds/falco -c falco --since=2m | grep -o '"rule":"[^"]*"' | sort | uniq -c
+kubectl logs -n falco deploy/falco-falcosidekick --since=2m | grep -i webhook
+```
+
+**Expected:**
+- Falco logged `Read sensitive file untrusted` (priority Warning);
+- falcosidekick logged `Webhook - POST OK (202)`.
+
+The owner view (port 8081 is not routed from outside, so forward it):
+
+```bash
+kubectl port-forward -n timeline svc/timeline 8081:8081 >/dev/null & PF=$!; sleep 2
+curl -s "localhost:8081/owner/timeline?since=5m" | jq -r '.[] | select(.source=="falco") | "\(.at)  \(.severity)  \(.summary)"'
+kill $PF
+curl -s "https://lab.hetops.dev/timeline?since=5m" | jq '[.[] | select(.source=="falco")] | length'
+```
+
+**Expected:**
+- the owner view: `warn  Read sensitive file untrusted: falco/falco-test`;
+- the public timeline: `0`.
+
+**If it does not arrive:**
+
+| falcosidekick log says | Meaning |
+|---|---|
+| `POST OK (202)` but nothing on the owner view | below Warning, so the timeline dropped it: check the rule's priority |
+| `401` | the header is wrong: re-run step 1 |
+| `connection refused` / timeout | the network policy is not synced yet: `kubectl get netpol timeline -n timeline -o yaml \| grep falco` |
+| the pod is `CreateContainerConfigError` | the sealed secret is not unsealed yet: `kubectl get secret falcosidekick-timeline -n falco` |
