@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: alertmanager-timeline
+  namespace: monitoring
+spec:
+  encryptedData:
+    token: AgBGadZD8RE6GzmXO91+W4J1cfXWux85W5PsstsIY07j6hm/YP5cw3pgWTfNa8TuWXrRjOT9rAYmW5pD0hawUJ+TfG/WdqmcEV6bJxy68nvgTxCWHbJCOVHxt8v4ciFg5CbngznFfnLsi9olQtvgj54ENM1p9B6WWoHVWTZVB3zRzSDNJS8T9bncxXnH+GEBp+Ef2G+3j0RuZsjAoi2LfprUE0SmHfNZA0jBtPYFe2Mp+jzgz4KxEDTHpEXHDF4gbpWkDVsy5O10CPOVggoIpuPOK5aMq5ovPL6dbTzPJTlUSBM/5npWfB19hF+xk4CuMyRYpwe5//MgA0iYwx1xXZlXTGCjg7vgaG/KWBv5+tzelnIFC4baeCunyacbCQBNYmpy14m7u5Vf8TyKzdFY51s+wVPHm8Y9OOKkfrM3FbJpk8820Ajci16SqhruyhVfsOhrHGwdnlEbRj4t377DGOhlbkX6oQ4pxuAnbT/SRQlsAZoxRnPWluuWgnUkC11bPzng/7ccSqQxrpSIBmLPlRD8qLzTNn3XG1DnYo10skSpzuKGDiGwHD8t8r5ezUqAtYwZRVKjDx94MdIFvb9NC344OZG9ngpCpnc3cCYI+iZPG7Aaz9avtb2IkYHCQhsTdKp7oNPyjjFkeneal9apT5GpwIohEgGS+nU3mNOWeeosvIJxQAQGPXwJhEd8XhCjov7LRRv4UQsPPfcUTY2MmGCrDOlOOphdO5WcKwZj0EvPdjg+OwKIHIZWYxjSdELcifzwc19tUm0oTmX7dUecMuHx
+  template:
+    metadata:
+      name: alertmanager-timeline
+      namespace: monitoring

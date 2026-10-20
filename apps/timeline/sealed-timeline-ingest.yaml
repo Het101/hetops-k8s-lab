@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: timeline-ingest
+  namespace: timeline
+spec:
+  encryptedData:
+    token: AgBo2qOYpmcqfsbsIaEZqJDweEQeZkAaOvrDYOiKs0i7cSuH4QDQbEp06dzBMuUKfq7WSOD1ySbW0yuanYUYy2Rliz777Uq+DzXXpr0IHiUuqMW/vcEcVkcfVfspimV6/rCy20mFSjFZzV3q6cIaIeGyiCmeDx2LhpChtGq/A6oTogWyL7kxGet4ZvZgVkGLmbtZp54m2+cJ/9ho8eK5e57IsdTnXV4AP/3r5I/ExIz0GYnxkiDmeEpsc1xu0sd7A/d6R+pJg1//JkLdsZEiZDRqNo71tFnFmZqHUwpLy+kYNXrRGpCNOeZz+4eft1Ak96EEpVXyLfDjUxWYWxeXVqKGzzksmpojunAb9Ura0jJe7z7lU9hBnsV+hJqqndzq4fYuOSHPdNOK9MYtBDbGU+WszgkKsPXes139+nLmOh3VDrQPHdvreuUOVayR/ChTp4s9HzE8JOl5L4A0rk86gTmSY3p13RjXTmHNYC1S4cJQLXyGATgxUcfwlO6Gc7QsqZAMpnOyDkxid2MAGJKCSg3MADGc4cqq4pJT9kfcO5WLDI1Jlo0vJVBgsSoXHZY/1dgXPVp7ipW/7QBHWn7aXouJrGeZ5G7qDaE+kq/sgEt/vIZE9sfEcL8PhlN5hIeLXCUwPpcEEGRCuo8nPv7w88TXECiGEfSiEB8RkEUJPwnCoTOtKLZK83/shKCwsYL2sE9ShBosU9Gp8rgHnE3iIligGIDRHf5/J5Escbx9qb1p1ay0nyS4nZtNgbiWu1VZR1VH51DhEP8SXjCGGiXJjPvN
+  template:
+    metadata:
+      name: timeline-ingest
+      namespace: timeline
