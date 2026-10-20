@@ -197,13 +197,14 @@ kubectl -n chaos get pods
 ```bash
 AM=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=alertmanager -o name | head -1)
 kubectl -n monitoring exec $AM -c alertmanager -- amtool alert add TimelineTest team=lab severity=warning \
-  --annotation=summary="Test alert for the Change Timeline" --end=$(date -u -d '+3 min' +%Y-%m-%dT%H:%M:%SZ) \
+  --annotation='summary="Test alert for the Change Timeline"' --start=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  --end=$(date -u -d '+3 min' +%Y-%m-%dT%H:%M:%SZ) \
   --alertmanager.url=http://localhost:9093
 sleep 30; curl -s "https://lab.hetops.dev/timeline?since=5m" | jq -r '.[] | "\(.at)  \(.source)/\(.kind)  \(.summary)"'
 ```
 
 **Expected:**
-- `alert/firing  Test alert for the Change Timeline` on the timeline, plus the same alert in Telegram;
+- `alert/firing  Test alert for the Change Timeline` on the timeline, plus the same alert in Telegram. Quote the annotation value and pass `--start`: on 20 Oct, without `--start`, this amtool sent the end time as the start;
 - after about 3 to 8 minutes, `alert/resolved` in both.
 
 **A kill-pod with the bypass** (`read -rsp` as in 4a). Expected now:
