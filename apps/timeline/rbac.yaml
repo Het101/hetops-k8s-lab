@@ -1,0 +1,32 @@
+# The timeline's identity. It only ever reads: get, list and watch, never write.
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: timeline, namespace: timeline }
+---
+# What it reads in each lab namespace. Bound by a RoleBinding in clinic, clinic-data and chaos
+# (the clinic one lives in apps/clinic/base, so it comes back after a namespace nuke).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: timeline-reader }
+rules:
+- apiGroups: [""]
+  resources: [pods, events]
+  verbs: [get, list, watch]
+- apiGroups: [apps]
+  resources: [deployments, statefulsets]
+  verbs: [get, list, watch]
+---
+# Argo CD Applications: read-only, for syncs and health. They live only in argocd.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: timeline-argo }
+rules:
+- apiGroups: [argoproj.io]
+  resources: [applications]
+  verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: timeline-argo }
+subjects: [{ kind: ServiceAccount, name: timeline, namespace: timeline }]
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: timeline-argo }

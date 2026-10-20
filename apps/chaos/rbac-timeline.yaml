@@ -1,0 +1,6 @@
+# The Change Timeline may read (get/list/watch) workloads, pods and events here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: timeline-reader, namespace: chaos }
+subjects: [{ kind: ServiceAccount, name: timeline, namespace: timeline }]
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: timeline-reader }

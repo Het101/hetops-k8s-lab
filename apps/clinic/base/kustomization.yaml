@@ -15,3 +15,4 @@ resources:
 - networkpolicies.yaml
 - rbac-viewer.yaml
 - rbac-chaos.yaml
+- rbac-timeline.yaml

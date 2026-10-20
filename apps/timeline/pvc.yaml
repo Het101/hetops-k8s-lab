@@ -1,0 +1,7 @@
+# The SQLite file (14 days of events, well under 50 MiB). Losing it loses history, not function.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: timeline-data, namespace: timeline }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 1Gi } }
