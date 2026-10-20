@@ -6,3 +6,4 @@ resources:
 - postgres.yaml
 - networkpolicy.yaml
 - mesh-policy.yaml
+- rbac-timeline.yaml

@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: default-deny, namespace: timeline }
+spec: { podSelector: {}, policyTypes: [Ingress, Egress] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-dns, namespace: timeline }
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+      podSelector: { matchLabels: { k8s-app: kube-dns } }
+    ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-linkerd, namespace: timeline }
+spec:
+  podSelector: {}                 # every proxy talks to the Linkerd control plane
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: linkerd } }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: timeline, namespace: timeline }
+spec:
+  podSelector: { matchLabels: { app: timeline } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+  - from:
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }   # visitors (public door) and the owner
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }      # Prometheus scrapes; Alertmanager (part 4b)
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: chaos } }           # chaos-api events (plan T5)
+    ports: [{ protocol: TCP, port: 8080 }, { protocol: TCP, port: 8081 }, { protocol: TCP, port: 4143 }]   # 4143: Linkerd proxy (mTLS)
+  egress:
+  - to:                                  # the Kubernetes API: Service IP and its real endpoint (same as chaos-api)
+    - ipBlock: { cidr: 10.96.0.1/32 }
+    - ipBlock: { cidr: 10.0.0.11/32 }
+    ports: [{ protocol: TCP, port: 443 }, { protocol: TCP, port: 6443 }]
+  - to:                                  # api.github.com: commit subjects for Argo CD syncs (internet, HTTPS only)
+    - ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] }
+    ports: [{ protocol: TCP, port: 443 }]

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: timeline, namespace: timeline }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }       # one writer for the SQLite file, and the disk is ReadWriteOnce
+  selector: { matchLabels: { app: timeline } }
+  template:
+    metadata: { labels: { app: timeline } }
+    spec:
+      serviceAccountName: timeline
+      securityContext: { runAsNonRoot: true, runAsUser: 1000, seccompProfile: { type: RuntimeDefault } }
+      containers:
+      - name: timeline
+        image: ghcr.io/het101/change-timeline
+        ports:
+        - { name: http, containerPort: 8080 }   # public: /timeline, /timeline/stream; in-cluster: /ingest, /metrics
+        - { name: owner, containerPort: 8081 }  # owner-only: /owner/timeline (behind Cloudflare Access)
+        env:
+        - { name: WATCH_NAMESPACES, value: "clinic,clinic-data,chaos" }
+        - { name: ARGO_NAMESPACE, value: argocd }
+        - { name: ALLOWED_ORIGIN, value: "https://hetops.dev" }
+        - name: INGEST_TOKEN                     # optional until part 4b seals it; until then every ingest is refused
+          valueFrom: { secretKeyRef: { name: timeline-ingest, key: token, optional: true } }
+        readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5 }
+        livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10, failureThreshold: 3 }
+        resources:
+          requests: { cpu: 50m, memory: 96Mi }
+          limits: { cpu: 250m, memory: 192Mi }
+        securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+        volumeMounts:
+        - { name: data, mountPath: /data }
+        - { name: tmp, mountPath: /tmp }
+      volumes:
+      - { name: data, persistentVolumeClaim: { claimName: timeline-data } }
+      - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: timeline, namespace: timeline, labels: { app: timeline } }   # labels: so a ServiceMonitor can find it
+spec:
+  selector: { app: timeline }
+  ports:
+  - { name: http, port: 8080, targetPort: http }
+  - { name: owner, port: 8081, targetPort: owner }

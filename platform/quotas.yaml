@@ -61,3 +61,36 @@ spec:
     max:
       cpu: 500m
       memory: 256Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: budget
+  namespace: timeline
+spec:
+  hard:
+    requests.cpu: 200m
+    requests.memory: 256Mi
+    limits.cpu: "1"                # one timeline pod + its Linkerd proxy; 2 pods of headroom for a restart
+    limits.memory: 512Mi
+    pods: "2"
+    persistentvolumeclaims: "1"     # its SQLite file
+    requests.storage: 1Gi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: defaults
+  namespace: timeline
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: 100m
+      memory: 128Mi
+    defaultRequest:
+      cpu: 25m
+      memory: 64Mi
+    max:
+      cpu: 500m
+      memory: 256Mi

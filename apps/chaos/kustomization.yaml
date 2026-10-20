@@ -4,6 +4,7 @@ resources:
 - sealed-chaos-secrets.yaml
 - configmaps.yaml
 - rbac.yaml
+- rbac-timeline.yaml
 - deployment.yaml
 - ingress.yaml
 - networkpolicies.yaml
