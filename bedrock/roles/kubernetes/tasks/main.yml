@@ -27,7 +27,9 @@
     that:
       - "'containerd.io' in ansible_facts.packages"
       - "'containerd' not in ansible_facts.packages"
-    fail_msg: "The runtime changed: containerd.io {{ 'present' if 'containerd.io' in ansible_facts.packages else 'missing' }}, Ubuntu containerd {{ 'installed' if 'containerd' in ansible_facts.packages else 'absent' }}"
+    fail_msg: >-
+      The runtime changed: expected Docker's containerd.io installed and Ubuntu's containerd absent, found
+      {{ ansible_facts.packages | dict2items | map(attribute='key') | select('match', '^containerd') | list }}
     quiet: true
 
 - name: Read which packages apt holds back
