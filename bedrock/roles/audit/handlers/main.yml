@@ -1,0 +1,17 @@
+# Only when the audit policy changed: the API server reads it at start. Stopping the container is
+# enough: the kubelet starts it again from the unchanged manifest within seconds. kubectl is down
+# for about a minute; the sites (Coolify) are not affected.
+- name: Restart the API server
+  ansible.builtin.shell: >-
+    crictl --runtime-endpoint unix:///run/containerd/containerd.sock stop
+    $(crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps --name kube-apiserver -q)
+  changed_when: true
+
+- name: Wait for the API server
+  ansible.builtin.uri:
+    url: https://127.0.0.1:6443/readyz
+    validate_certs: false
+  register: audit_readyz
+  until: audit_readyz.status == 200
+  retries: 36
+  delay: 5

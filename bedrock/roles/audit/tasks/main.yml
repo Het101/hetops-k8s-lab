@@ -1,6 +1,11 @@
-# The API server's audit policy (SIEM track T1), installed until now by platform/host/enable-audit.sh.
-# The repo's file is the source of truth: if the copy on the server differs, check mode shows the diff.
-# Phase 2 adds the API server flags and a handler that restarts it only when this file changes.
+# The API server's audit logging (SIEM track T1).
+#
+# 1. The policy file on the server is the one in git. If it changes, the API server is restarted
+#    (handlers), because it reads the policy only at start.
+# 2. kubeadm's ClusterConfiguration carries the audit flags and volumes, so `kubeadm upgrade`
+#    regenerates them instead of dropping them. Discovery, 21 Oct: `kubeadm upgrade diff` removed
+#    every audit flag and both volumes, and nothing else.
+# 3. The running manifest has the flags (a read).
 
 - name: The audit policy on the server is the one in git
   ansible.builtin.copy:
@@ -9,3 +14,56 @@
     owner: root
     group: root
     mode: "0644"
+  notify:
+    - Restart the API server
+    - Wait for the API server
+
+- name: Read kubeadm's cluster configuration
+  kubernetes.core.k8s_info:
+    kind: ConfigMap
+    namespace: kube-system
+    name: kubeadm-config
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: audit_kubeadm_config
+
+# kubeadm stores the config as one YAML string. Compare it parsed, not as text: re-serialising never
+# matches kubeadm's formatting byte for byte, so a text compare would report a change on every run.
+# Extra args or volumes someone else adds are kept; only ours are set.
+- name: Work out the configuration with the audit settings in it
+  vars:
+    audit_current: "{{ audit_kubeadm_config.resources[0].data.ClusterConfiguration | from_yaml }}"
+    audit_arg_names: "{{ audit_api_server_args | map(attribute='name') | list }}"
+    audit_volume_names: "{{ audit_api_server_volumes | map(attribute='name') | list }}"
+    audit_args: "{{ (audit_current.apiServer.extraArgs | default([]) | rejectattr('name', 'in', audit_arg_names) | list) + audit_api_server_args }}"
+    audit_volumes: "{{ (audit_current.apiServer.extraVolumes | default([]) | rejectattr('name', 'in', audit_volume_names) | list) + audit_api_server_volumes }}"
+  ansible.builtin.set_fact:
+    audit_cluster_config: "{{ audit_current }}"
+    audit_wanted_config: "{{ audit_current | combine({'apiServer': {'extraArgs': audit_args, 'extraVolumes': audit_volumes}}, recursive=True) }}"
+
+- name: Kubeadm's configuration carries the audit settings, so upgrades keep them
+  kubernetes.core.k8s:
+    kubeconfig: "{{ audit_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: kubeadm-config
+        namespace: kube-system
+      data:
+        ClusterConfiguration: "{{ audit_wanted_config | to_nice_yaml(indent=2) }}"
+  when: audit_wanted_config != audit_cluster_config
+
+- name: Read the API server's manifest
+  ansible.builtin.slurp:
+    src: /etc/kubernetes/manifests/kube-apiserver.yaml
+  register: audit_manifest
+
+- name: The running API server has every audit flag
+  ansible.builtin.assert:
+    that: "('--' ~ item.name ~ '=' ~ item.value) in (audit_manifest.content | b64decode)"
+    fail_msg: "--{{ item.name }}={{ item.value }} is missing from kube-apiserver.yaml"
+    quiet: true
+  loop: "{{ audit_api_server_args }}"
+  loop_control:
+    label: "{{ item.name }}"

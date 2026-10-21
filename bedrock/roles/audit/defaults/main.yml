@@ -1,0 +1,16 @@
+# The API server's audit settings, in kubeadm's own format (ClusterConfiguration v1beta4: lists of
+# name/value). They are the flags platform/host/enable-audit.sh added to the manifest by hand: log
+# rotated at 50 MB, 3 files, 3 days (Filebeat ships them to Elasticsearch anyway).
+audit_api_server_args:
+  - { name: audit-policy-file, value: /etc/kubernetes/audit/policy.yaml }
+  - { name: audit-log-path, value: /var/log/kubernetes/audit/audit.log }
+  - { name: audit-log-maxsize, value: "50" }
+  - { name: audit-log-maxbackup, value: "3" }
+  - { name: audit-log-maxage, value: "3" }
+
+audit_api_server_volumes:
+  - { name: audit-policy, hostPath: /etc/kubernetes/audit, mountPath: /etc/kubernetes/audit, readOnly: true, pathType: DirectoryOrCreate }
+  - { name: audit-log, hostPath: /var/log/kubernetes/audit, mountPath: /var/log/kubernetes/audit, readOnly: false, pathType: DirectoryOrCreate }
+
+# Root's view of the cluster (the playbook runs with become).
+audit_kubeconfig: /etc/kubernetes/admin.conf
