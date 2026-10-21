@@ -114,6 +114,13 @@ chaos-api freezes visitor chaos when the 7-day error budget is spent (`lab:slo_b
   ```bash
   kubectl -n logging get secret lab-logs-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d
   ```
+- **Yellow after a restart, `logging` stuck in Progressing:** look for replica shards (`r UNASSIGNED`). One node can never place a replica. Kibana's detection engine creates `.lists-default` and `.items-default` with 1 replica; set them to 0 (done 22 Oct). A new backing index after a rollover needs it again:
+  ```bash
+  PW=$(kubectl -n logging get secret lab-logs-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d)
+  kubectl -n logging exec lab-logs-es-default-0 -c elasticsearch -- curl -sk -u "elastic:$PW" "https://localhost:9200/_cat/shards?h=index,prirep,state,unassigned.reason" | grep UNASSIGNED
+  kubectl -n logging exec lab-logs-es-default-0 -c elasticsearch -- curl -sk -u "elastic:$PW" -X PUT "https://localhost:9200/<index>/_settings" -H 'content-type: application/json' -d '{"index":{"number_of_replicas":0}}'
+  unset PW
+  ```
 - Retention: 3 days (ILM policy from the `filebeat-ilm-policy` ConfigMap). Disk guard: Elasticsearch stops allocating with less than 30 GB free on the host, and blocks writes below 20 GB.
 - Host paths written by the stack (clean up only after removing the `logging` app): the local-path volume under `/opt/local-path-provisioner/`, and Filebeat's read positions at `/var/lib/logging/lab-filebeat/`.
 
