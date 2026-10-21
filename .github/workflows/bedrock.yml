@@ -54,6 +54,9 @@ jobs:
           echo "$HOME/ansible/bin" >> "$GITHUB_PATH"
       - name: The pinned Ansible is the one that runs
         run: which ansible-playbook && ansible-playbook --version | head -1
+      # The owner's order on a real server: check mode first. A first install must not fail in check mode.
+      - name: Check mode on a blank machine does not fail
+        run: ansible-playbook site.yml --check > check-first.log || { tail -n 40 check-first.log; exit 1; }
       - name: First run, from a blank machine
         run: |
           start=$(date +%s)
