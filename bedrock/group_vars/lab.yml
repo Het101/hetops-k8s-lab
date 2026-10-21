@@ -1,6 +1,6 @@
 # What the lab server really has, written down from the Phase 1 discovery (sheet step 3).
 # In Phase 1 these describe the server; they do not change it.
 
-# The kube packages' minor version, e.g. "1.34" (dpkg-query in step 3). Empty on purpose: the play
-# stops and asks for it rather than guessing.
-kubernetes_minor: ""
+# The kube packages' minor version. Discovery, 21 Oct: kubeadm, kubelet and kubectl 1.31.14-1.1, all
+# held. 1.31 left upstream support in Oct 2025: upgrading is one minor at a time, by turning this dial.
+kubernetes_minor: "1.31"
