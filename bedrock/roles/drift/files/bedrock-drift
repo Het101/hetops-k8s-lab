@@ -30,8 +30,21 @@ def check():
         return None, run
 
 
-def differences(data):
-    """(changed, failed) tasks as {role, task}; the json callback names tasks 'role : task'."""
+def handlers(bedrock=BEDROCK):
+    """{(role, name)} of every handler. A handler that would run is a consequence of a change, not a change
+    (live run, 21 Oct: one hand edit counted twice, the template and Reload SSH)."""
+    names = set()
+    for f in Path(bedrock).glob("roles/*/handlers/main.yml"):
+        for line in f.read_text().splitlines():
+            m = re.match(r"^- name: (.+?)\s*$", line)
+            if m:
+                names.add((f.parent.parent.name, m.group(1).strip("'\"")))
+    return names
+
+
+def differences(data, skip=frozenset()):
+    """(changed, failed) tasks as {role, task}; the json callback names tasks 'role : task'. Handlers in
+    skip count when they fail, never when they would change."""
     changed, failed = [], []
     for play in data.get("plays", []):
         for t in play.get("tasks", []):
@@ -40,7 +53,7 @@ def differences(data):
             for result in t.get("hosts", {}).values():
                 if result.get("failed") and not result.get("ignore_errors"):
                     failed.append({"role": role, "task": task})
-                elif result.get("changed"):
+                elif result.get("changed") and (role, task) not in skip:
                     changed.append({"role": role, "task": task})
     return changed, failed
 
@@ -70,7 +83,7 @@ def main():
         changed, failed = [], [{"role": "bedrock", "task": "the playbook did not run"}]
         print(run.stderr[-2000:], file=sys.stderr)
     else:
-        changed, failed = differences(data)
+        changed, failed = differences(data, handlers())
     for kind, tasks in (("FAILED", failed), ("would change", changed)):
         for t in tasks:
             print(f"{kind}: {t['role']} : {t['task']}")

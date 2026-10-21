@@ -36,5 +36,20 @@ class Differences(unittest.TestCase):
         self.assertEqual(changed, [{"role": "", "task": "Some play task"}])
 
 
+class Handlers(unittest.TestCase):
+    def test_a_handler_that_would_run_is_not_a_second_change(self):
+        data = {"plays": [{"tasks": [
+            task("base : SSH uses Bedrock's settings", changed=True),
+            task("base : Reload SSH", changed=True),
+        ]}]}
+        changed, _ = drift.differences(data, drift.handlers())
+        self.assertEqual(changed, [{"role": "base", "task": "SSH uses Bedrock's settings"}])
+
+    def test_the_real_handler_files_are_read(self):
+        names = drift.handlers()
+        for expected in [("base", "Reload SSH"), ("audit", "Restart the API server"), ("kubernetes", "Restart containerd")]:
+            self.assertIn(expected, names)
+
+
 if __name__ == "__main__":
     unittest.main()
