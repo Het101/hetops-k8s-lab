@@ -1,0 +1,44 @@
+# containerd and the kube packages: installed, held at one minor version, and containerd using the
+# systemd cgroup driver (the kubelet's default since 1.22; a mismatch makes pods restart in a loop).
+
+- name: The kube version has been written down
+  ansible.builtin.assert:
+    that: kubernetes_minor | length > 0
+    fail_msg: "Set kubernetes_minor in group_vars/lab.yml from the discovery step (dpkg-query -W kubeadm)"
+    quiet: true
+
+- name: Read the installed packages
+  ansible.builtin.package_facts:
+
+- name: kubeadm, kubelet and kubectl are installed at that version
+  ansible.builtin.assert:
+    that:
+      - item in ansible_facts.packages
+      - ansible_facts.packages[item][0].version.startswith(kubernetes_minor ~ '.')
+    fail_msg: "{{ item }}: {{ ansible_facts.packages[item][0].version | default('not installed') }}, expected {{ kubernetes_minor }}.x"
+    quiet: true
+  loop: [kubeadm, kubelet, kubectl]
+
+- name: Read which packages apt holds back
+  ansible.builtin.command: apt-mark showhold
+  register: held
+  check_mode: false
+  changed_when: false
+
+- name: apt will not upgrade them behind kubeadm's back
+  ansible.builtin.assert:
+    that: item in held.stdout_lines
+    fail_msg: "{{ item }} is not held: an apt upgrade could move it to another minor version"
+    quiet: true
+  loop: [kubeadm, kubelet, kubectl]
+
+- name: Read containerd's config
+  ansible.builtin.slurp:
+    src: /etc/containerd/config.toml
+  register: containerd_config
+
+- name: containerd uses the systemd cgroup driver
+  ansible.builtin.assert:
+    that: "'SystemdCgroup = true' in (containerd_config.content | b64decode)"
+    fail_msg: "SystemdCgroup is not true in /etc/containerd/config.toml"
+    quiet: true

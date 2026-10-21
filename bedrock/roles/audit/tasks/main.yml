@@ -1,0 +1,11 @@
+# The API server's audit policy (SIEM track T1), installed until now by platform/host/enable-audit.sh.
+# The repo's file is the source of truth: if the copy on the server differs, check mode shows the diff.
+# Phase 2 adds the API server flags and a handler that restarts it only when this file changes.
+
+- name: The audit policy on the server is the one in git
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../platform/host/audit-policy.yaml"
+    dest: /etc/kubernetes/audit/policy.yaml
+    owner: root
+    group: root
+    mode: "0644"
