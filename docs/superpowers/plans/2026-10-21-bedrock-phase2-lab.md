@@ -223,3 +223,30 @@ ansible-playbook site.yml --check --diff
 - the second check: `changed=0`.
 
 After this, `platform/host/enable-audit.sh` is retired in the next PR. Bedrock owns the policy and the flags, and a kubeadm upgrade keeps them.
+
+## Step 4: reboot awareness
+
+**Why:** discovery found kernel `7.0.0-1013-oracle` installed while `6.17.0-1014-oracle` runs. Unattended upgrades install kernels but never reboot, so the new kernel's fixes are not active yet.
+
+**What changes:** nothing on the server. Three read tasks:
+- `stat` checks for the flag Ubuntu drops (`/var/run/reboot-required`);
+- `slurp` reads which packages asked for the reboot;
+- `debug` prints it.
+
+**The Ansible idea:** report, don't act.
+- Ansible *could* reboot (`ansible.builtin.reboot` waits for the host to come back), but the server also runs every live site, so when to reboot is the owner's decision.
+- `debug` shows as `ok`, not `changed`: a report is not a change. Phase 4's nightly run picks up the same message.
+
+```bash
+cd ~/hetops-k8s-lab && git pull && cd bedrock
+ansible-playbook site.yml --check --diff
+```
+
+**Expected:**
+- `Say so if a reboot is pending` prints the running kernel and the packages, for example `linux-image-7.0.0-1013-oracle`;
+- recap `changed=0`.
+
+**The reboot itself (your call, at a quiet time):**
+- `sudo reboot`;
+- 2 to 3 minutes later: `uname -r` shows 7.0, every site is up on status.hetops.dev, `kubectl get nodes` is `Ready`, and the Argo CD apps are `Healthy`;
+- run Bedrock again: the reboot message is gone and `changed=0`.
