@@ -107,7 +107,9 @@
             - name: Apt reads the new minor version's repository
               ansible.builtin.copy:
                 dest: /etc/apt/sources.list.d/kubernetes.list
-                content: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ upgrade_kubernetes_minor }}/deb/ /\n"
+                content: >                # folded: one line and a newline, as roles/kubernetes writes it
+                  deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg]
+                  https://pkgs.k8s.io/core:/stable:/v{{ upgrade_kubernetes_minor }}/deb/ /
                 mode: "0644"
 
             - name: Apt knows the new repository
