@@ -8,3 +8,8 @@ upgrade_kubernetes_package_version: "1.32.13-1.1"   # the latest 1.32 patch on p
 upgrade_calico_version: v3.29.7
 # kubeadm upgrade plan, 22 Oct: etcd 3.5.24-0 now and as the target, so the etcd step is skipped.
 upgrade_etcd: false
+# Where this upgrade starts from (CI builds this first, then rehearses the upgrade from it).
+upgrade_from_vars:
+  kubernetes_minor: "1.31"
+  kubernetes_package_version: "1.31.14-1.1"
+  cluster_calico_version: v3.27.0

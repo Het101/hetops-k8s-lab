@@ -19,6 +19,22 @@
         quiet: true
       tags: [always]
 
+    # 22 Oct: the upgrade overlapped the nightly chaos self-test (03:00 IST = 21:30 UTC), which then failed
+    # (kill-postgres over target while the control plane restarted). Never upgrade under a running test.
+    - name: Read the chaos lab's running jobs
+      ansible.builtin.command: kubectl -n chaos get jobs -o jsonpath={.items[?(@.status.active)].metadata.name}
+      register: upgrade_chaos_jobs
+      changed_when: false
+      failed_when: false
+      tags: [always]
+
+    - name: No chaos self-test is running
+      ansible.builtin.assert:
+        that: upgrade_chaos_jobs.stdout | length == 0
+        fail_msg: "A chaos job is running ({{ upgrade_chaos_jobs.stdout }}); the self-test runs at 03:00 IST (21:30 UTC). Wait for it."
+        quiet: true
+      tags: [always]
+
     # ── Calico ──────────────────────────────────────────────────────────────────────────────────────
     - name: Calico
       tags: [calico]

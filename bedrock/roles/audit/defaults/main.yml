@@ -10,7 +10,9 @@ audit_api_server_args:
 
 audit_api_server_volumes:
   - { name: audit-policy, hostPath: /etc/kubernetes/audit, mountPath: /etc/kubernetes/audit, readOnly: true, pathType: DirectoryOrCreate }
-  - { name: audit-log, hostPath: /var/log/kubernetes/audit, mountPath: /var/log/kubernetes/audit, readOnly: false, pathType: DirectoryOrCreate }
+  # No readOnly: false: kubeadm drops a false default when it rewrites its config (upgrade, 22 Oct), and the
+  # parsed compare would then see a change after every upgrade.
+  - { name: audit-log, hostPath: /var/log/kubernetes/audit, mountPath: /var/log/kubernetes/audit, pathType: DirectoryOrCreate }
 
 # The kubernetes.core modules' action plugin reads this file on the CONTROLLER, as the user running
 # ansible-playbook, before become applies (21 Oct: /etc/kubernetes/admin.conf gave Permission denied).
