@@ -18,7 +18,13 @@
     - Restart the API server
     - Wait for the API server
 
+# The kubernetes.core modules need the Python `kubernetes` client. Modules run with the managed host's
+# Python (/usr/bin/python3.12, no client; Ubuntu's python3-kubernetes is too old); the client is in
+# Ansible's own venv (pipx inject ansible kubernetes). The controller is this same host, so these two
+# tasks run with the controller's Python. Every other module keeps the system Python apt needs.
 - name: Read kubeadm's cluster configuration
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
   kubernetes.core.k8s_info:
     kind: ConfigMap
     namespace: kube-system
@@ -41,6 +47,8 @@
     audit_wanted_config: "{{ audit_current | combine({'apiServer': {'extraArgs': audit_args, 'extraVolumes': audit_volumes}}, recursive=True) }}"
 
 - name: Kubeadm's configuration carries the audit settings, so upgrades keep them
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
   kubernetes.core.k8s:
     kubeconfig: "{{ audit_kubeconfig }}"
     state: present
