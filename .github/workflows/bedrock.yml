@@ -63,6 +63,16 @@ jobs:
         run: |
           ansible-playbook site.yml | tee second-run.log
           grep -E 'changed=0 +unreachable=0 +failed=0' second-run.log
+      # A new role reaching a server that is already built: its check mode must not fail before its first
+      # install (live run, 21 Oct: the drift timer did). Remove the drift role's units, check, re-apply.
+      - name: Check mode works before a role's first install
+        run: |
+          sudo systemctl disable --now bedrock-drift.timer
+          sudo rm -f /etc/systemd/system/bedrock-drift.service /etc/systemd/system/bedrock-drift.timer
+          sudo systemctl daemon-reload
+          ansible-playbook site.yml --check > check-new-role.log || { tail -n 40 check-new-role.log; exit 1; }
+          tail -n 2 check-new-role.log
+          ansible-playbook site.yml > /dev/null
       - name: The nightly drift check runs, and finds nothing on a machine the playbook just built
         run: |
           sudo systemctl start bedrock-drift.service
