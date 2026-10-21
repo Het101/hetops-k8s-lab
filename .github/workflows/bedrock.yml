@@ -7,6 +7,10 @@ on:
     branches: [main]
     paths: ["bedrock/**", "platform/host/**", ".github/workflows/bedrock.yml"]
   workflow_dispatch:
+  # Weekly, even with no change here: package repos, Calico's manifest URL and the runner image all move
+  # under the playbook. The portfolio's "last proven" reads the latest passing run.
+  schedule:
+    - cron: "17 3 * * 1"           # Mondays 03:17 UTC
 permissions:
   contents: read
 jobs:
