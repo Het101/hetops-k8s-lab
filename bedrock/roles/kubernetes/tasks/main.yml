@@ -19,6 +19,19 @@
     quiet: true
   loop: [kubeadm, kubelet, kubectl]
 
+# Discovery, 21 Oct: one containerd (Docker's containerd.io) serves both Docker (namespace moby: Coolify
+# and every live site) and Kubernetes (k8s.io). Ubuntu's containerd is removed (rc). So a containerd
+# restart or upgrade bounces the lab AND the sites: nothing in Bedrock restarts it without saying so.
+- name: The container runtime is Docker's containerd.io, shared with Coolify
+  ansible.builtin.assert:
+    that:
+      - "'containerd.io' in ansible_facts.packages"
+      - "'containerd' not in ansible_facts.packages"
+    fail_msg: >-
+      The runtime changed: expected Docker's containerd.io installed and Ubuntu's containerd absent, found
+      {{ ansible_facts.packages | dict2items | map(attribute='key') | select('match', '^containerd') | list }}
+    quiet: true
+
 - name: Read which packages apt holds back
   ansible.builtin.command: apt-mark showhold
   register: kubernetes_held

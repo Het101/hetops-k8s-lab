@@ -5,9 +5,9 @@
 - name: The server is the one Bedrock was written for
   ansible.builtin.assert:
     that:
-      - ansible_architecture == 'aarch64'
-      - ansible_distribution == 'Ubuntu'
-    fail_msg: "Bedrock expects arm64 Ubuntu, found {{ ansible_architecture }} {{ ansible_distribution }}"
+      - ansible_facts['architecture'] == 'aarch64'
+      - ansible_facts['distribution'] == 'Ubuntu'
+    fail_msg: "Bedrock expects arm64 Ubuntu, found {{ ansible_facts['architecture'] }} {{ ansible_facts['distribution'] }}"
     quiet: true
 
 - name: Security updates install themselves
@@ -43,8 +43,8 @@
 
 - name: Swap is off (the kubelet refuses to run with it by default)
   ansible.builtin.assert:
-    that: ansible_swaptotal_mb == 0
-    fail_msg: "swap is on ({{ ansible_swaptotal_mb }} MB)"
+    that: ansible_facts['swaptotal_mb'] == 0
+    fail_msg: "swap is on ({{ ansible_facts['swaptotal_mb'] }} MB)"
     quiet: true
 
 # A read, never a change: sshd -T prints the settings sshd is actually using, after every include.
