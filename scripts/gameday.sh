@@ -13,7 +13,7 @@ get() { curl -s -H 'Host: lab.hetops.dev' "$url/$1"; }
 probes=$(mktemp)
 curl -s -N -H 'Host: lab.hetops.dev' "$url/stream" > "$probes" &
 recorder=$!
-trap 'kill $recorder 2>/dev/null; rm -f "$probes"' EXIT
+trap 'kill $recorder 2>/dev/null || true; rm -f "$probes"' EXIT
 sleep 1
 
 start=$(date +%s)
@@ -50,3 +50,6 @@ if failed:
 else:
     print("  (users noticed nothing)")
 PY
+# A clean run says so: without this the EXIT trap could leave a stray non-zero status, which stopped
+# timeline-gameday.sh (set -e) after the experiment on 21 Oct.
+exit 0
