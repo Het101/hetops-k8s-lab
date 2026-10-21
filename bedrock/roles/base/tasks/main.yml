@@ -76,6 +76,17 @@
 
 # SSH (Phase 2): Bedrock's settings in one drop-in file. validate: tests the rendered file with sshd before
 # it replaces anything; the handlers then test the whole config and reload SSH, only if the file changed.
+# Ubuntu 24.04 starts sshd on demand (ssh.socket), and /run/sshd exists only once it has run. On a fresh
+# machine nobody has SSHed into (the CI rebuild), sshd -t then fails: "Missing privilege separation
+# directory: /run/sshd". The live server has it, so this is ok there.
+- name: Sshd's privilege separation directory exists, so sshd -t can run
+  ansible.builtin.file:
+    path: /run/sshd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: SSH uses Bedrock's settings
   ansible.builtin.template:
     src: 10-bedrock.conf.j2
