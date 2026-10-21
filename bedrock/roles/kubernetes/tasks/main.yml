@@ -10,12 +10,19 @@
     quiet: true
 
 # ── apt sources: the exact files the server has (discovery: 110 and 108 bytes, one line each) ──
-- name: Docker's apt key
+# get_url with force: false still asks the server (If-Modified-Since), and in check mode it reports
+# changed (live run, 21 Oct). So: download only when the key is missing, like the Kubernetes key's creates:.
+- name: Is Docker's apt key there?
+  ansible.builtin.stat:
+    path: /etc/apt/keyrings/docker.asc
+  register: kubernetes_docker_key
+
+- name: Docker's apt key (only where it is missing)
   ansible.builtin.get_url:
     url: https://download.docker.com/linux/ubuntu/gpg
     dest: /etc/apt/keyrings/docker.asc
     mode: "0644"
-    force: false              # an existing key is kept, never re-downloaded
+  when: not kubernetes_docker_key.stat.exists
 
 - name: Docker's apt source (containerd.io comes from it)
   ansible.builtin.copy:
