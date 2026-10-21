@@ -148,3 +148,25 @@ ansible-playbook site.yml --check --diff
 ```
 
 **Expected:** `changed=0`.
+
+## Step 3: the audit flags, owned by kubeadm's config
+
+**The problem:** `platform/host/enable-audit.sh` added the audit flags straight into `/etc/kubernetes/manifests/kube-apiserver.yaml`. kubeadm owns that file. `kubeadm upgrade` regenerates it from the cluster's **ClusterConfiguration** (ConfigMap `kube-system/kubeadm-config`) and drops anything added by hand. So the first 1.31 → 1.32 upgrade would quietly switch audit logging off, and the SIEM rules from track 2 would go blind.
+
+**The fix:** put the flags and their two volumes into the ClusterConfiguration, so kubeadm generates them itself. Bedrock then checks that config. The manifest already has the flags, so no API server restart is needed to adopt this.
+
+### 3a. Discovery (read-only)
+
+**Predict before you run:**
+- Does the ClusterConfiguration mention audit at all?
+- What will `kubeadm upgrade diff` show for the audit flags?
+
+```bash
+kubectl -n kube-system get cm kubeadm-config -o jsonpath='{.data.ClusterConfiguration}'; echo
+sudo grep -n -E 'audit|kubernetesVersion' /etc/kubernetes/manifests/kube-apiserver.yaml
+sudo kubeadm upgrade diff v1.31.14 2>&1 | tail -n 60
+```
+
+`kubeadm upgrade diff` changes nothing: it prints the diff between today's static pod manifests and what an upgrade would write. Lines starting with `-` would be removed.
+
+Paste all three outputs to Claude. Step 3b, the role, is written from what they show.
