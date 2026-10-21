@@ -99,3 +99,52 @@ ansible-playbook site.yml --diff
 ```
 
 Close the second session when done.
+
+## Step 2: hold the shared containerd
+
+**Why:** discovery found that one containerd, Docker's `containerd.io`, runs both Coolify's sites and the lab, and it is **not held**. A routine `sudo apt upgrade` would upgrade it and restart it under everything at once.
+
+**What changes:** apt's selection for `containerd.io` becomes `hold`. Nothing restarts; it is apt bookkeeping only.
+
+**The Ansible idea:** a module, not a command.
+- `ansible.builtin.dpkg_selections` knows the current state, so it reports `ok` when the package is already held, supports check mode and is idempotent.
+- `shell: apt-mark hold containerd.io` would run every time, report `changed` every time, and do nothing in check mode.
+- Rule of thumb: reach for `command` or `shell` only when no module exists, and then only for reads.
+
+**Side effect, on purpose:** a `docker-ce` upgrade that needs a newer `containerd.io` is now "kept back" too. Upgrading the runtime becomes a decision: unhold, upgrade at a quiet time, check the sites and the lab, hold again. That becomes a Bedrock step later.
+
+### 2a. Predict, then check
+
+**Predict:**
+- Which task says `changed`?
+- What does the new "held too" check do in check mode?
+
+```bash
+cd ~/hetops-k8s-lab && git pull && cd bedrock
+ansible-playbook site.yml --check --diff
+```
+
+**Expected:**
+- `Apt will not upgrade the shared containerd on its own` is `changed`;
+- `The shared containerd is held too` is `skipping`;
+- recap `changed=1`, `failed=0`.
+
+### 2b. Apply, then verify
+
+```bash
+ansible-playbook site.yml --diff
+apt-mark showhold
+apt-cache policy containerd.io | head -3
+```
+
+**Expected:**
+- the recap shows `changed=1`, and the "held too" check is `ok`;
+- `showhold` lists `containerd.io` beside the kube packages.
+
+### 2c. Idempotence
+
+```bash
+ansible-playbook site.yml --check --diff
+```
+
+**Expected:** `changed=0`.
