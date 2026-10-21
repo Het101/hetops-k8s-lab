@@ -1,0 +1,9 @@
+# Phase 1 (adopt): run only as   ansible-playbook site.yml --check --diff
+# Done when the recap says changed=0 failed=0 for my-workspace.
+- name: The lab server
+  hosts: lab
+  become: true
+  roles:
+    - base
+    - kubernetes
+    - audit

@@ -1,0 +1,54 @@
+# The OS baseline a kubeadm node needs, as the kubeadm install guide sets it up. Phase 1: if the server
+# was set up differently (another file name, another value), check mode shows the difference and this
+# role is changed to match the server, not the other way round.
+
+- name: The server is the one Bedrock was written for
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture == 'aarch64'
+      - ansible_distribution == 'Ubuntu'
+    fail_msg: "Bedrock expects arm64 Ubuntu, found {{ ansible_architecture }} {{ ansible_distribution }}"
+    quiet: true
+
+- name: Security updates install themselves
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+
+- name: Kernel modules for containers and pod networking load at boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: The kernel forwards packets between pods
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_file: /etc/sysctl.d/k8s.conf
+    state: present
+
+- name: Swap is off (the kubelet refuses to run with it by default)
+  ansible.builtin.assert:
+    that: ansible_swaptotal_mb == 0
+    fail_msg: "swap is on ({{ ansible_swaptotal_mb }} MB)"
+    quiet: true
+
+# A read, never a change: sshd -T prints the settings sshd is actually using, after every include.
+- name: Read SSH's effective settings
+  ansible.builtin.command: sshd -T
+  register: base_sshd
+  check_mode: false
+  changed_when: false
+
+- name: SSH takes keys only, and root cannot log in with a password
+  ansible.builtin.assert:
+    that:
+      - "'passwordauthentication no' in base_sshd.stdout_lines"
+      - "'permitrootlogin no' in base_sshd.stdout_lines or 'permitrootlogin without-password' in base_sshd.stdout_lines"
+    fail_msg: "SSH is weaker than expected: {{ base_sshd.stdout_lines | select('match', '^(passwordauthentication|permitrootlogin) ') | list }}"
+    quiet: true

@@ -1,0 +1,27 @@
+# Bedrock: catch a broken playbook in the PR, before it is run on the lab server.
+# Phase 3 adds the rebuild-from-nothing job here.
+name: bedrock
+on:
+  pull_request:
+    paths: ["bedrock/**", "platform/host/**", ".github/workflows/bedrock.yml"]
+  push:
+    branches: [main]
+    paths: ["bedrock/**", "platform/host/**", ".github/workflows/bedrock.yml"]
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-24.04-arm          # the lab server is arm64
+    defaults:
+      run:
+        working-directory: bedrock
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Ansible and ansible-lint
+        run: pipx install --include-deps ansible==14.5.0 && pipx inject ansible ansible-lint==26.10.1 --include-apps
+      - name: Syntax check
+        run: ansible-playbook site.yml --syntax-check
+      - name: ansible-lint
+        run: ansible-lint site.yml
