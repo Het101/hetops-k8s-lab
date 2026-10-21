@@ -1,0 +1,61 @@
+# Phase 4, drift watch: a nightly check-mode run on the host, reported to the Change Timeline.
+# It runs on the host because it checks the host; it reaches the timeline pod through its Service IP
+# (a node may always reach the pods on it, which is how kubelet probes pass default-deny policies).
+
+- name: The drift check script
+  ansible.builtin.copy:
+    src: bedrock-drift
+    dest: /usr/local/bin/bedrock-drift
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Bedrock's own config directory
+  ansible.builtin.file:
+    path: /etc/bedrock
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# The ingest token comes from the cluster's own secret, never from git or chat. no_log: the secret's
+# value must not show in output or in --diff.
+- name: Read the timeline's ingest token
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  kubernetes.core.k8s_info:
+    kind: Secret
+    namespace: timeline
+    name: timeline-ingest
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: drift_ingest
+  no_log: true
+
+- name: The check can report to the timeline (only where the lab's timeline exists)
+  ansible.builtin.copy:
+    content: "{{ drift_ingest.resources[0].data.token | b64decode }}"
+    dest: /etc/bedrock/timeline-token
+    owner: "{{ drift_user }}"
+    group: "{{ drift_user }}"
+    mode: "0600"
+  no_log: true
+  when: drift_ingest.resources | length > 0
+
+- name: The drift check's systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [bedrock-drift.service, bedrock-drift.timer]
+  notify: Reload systemd
+
+- name: Apply new units before enabling them
+  ansible.builtin.meta: flush_handlers
+
+- name: The drift check runs nightly
+  ansible.builtin.systemd_service:
+    name: bedrock-drift.timer
+    enabled: true
+    state: started

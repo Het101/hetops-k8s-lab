@@ -1,0 +1,11 @@
+# Managed by Bedrock (roles/drift).
+[Unit]
+Description=Bedrock drift check, nightly
+
+[Timer]
+OnCalendar={{ drift_on_calendar }}
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
