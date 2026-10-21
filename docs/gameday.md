@@ -119,14 +119,17 @@ chaos-api freezes visitor chaos when the 7-day error budget is spent (`lab:slo_b
 
 ## Kubernetes audit logging (SIEM track, T1)
 
-The API server writes an audit log (policy: `platform/host/audit-policy.yaml`: every write including `pods/exec`, Secret/ConfigMap access at metadata level only, controller reads dropped). It is a static-pod change, so it lives outside Argo CD:
+The API server writes an audit log (policy: `platform/host/audit-policy.yaml`: every write including `pods/exec`, Secret/ConfigMap access at metadata level only, controller reads dropped). It is a static-pod change, so it lives outside Argo CD, in **Bedrock** (`bedrock/roles/audit`):
+- the policy file is copied from git; a change restarts the API server through handlers;
+- the flags and volumes are in kubeadm's ClusterConfiguration (`kube-system/kubeadm-config`), so `kubeadm upgrade` regenerates them;
+- the manifest is checked flag by flag.
 
 ```bash
-cd ~/hetops-k8s-lab && git pull && sudo platform/host/enable-audit.sh          # backup + apply
-sudo platform/host/enable-audit.sh rollback                                     # if kubectl is not back in 3 minutes
+cd ~/hetops-k8s-lab && git pull && cd bedrock && ansible-playbook site.yml --check --diff   # then without --check
+sudo kubeadm upgrade diff v1.31.14 2>&1 | grep -E '^[-+] +- --audit' | sed 's/^[-+]//' | sort | uniq -u   # empty: every audit flag is kept (at most moved)
 ```
 
-Filebeat ships `/var/log/kubernetes/audit/audit.log` to Elasticsearch under `k8s_audit.*` (`log_source: k8s-audit`). After a kubeadm upgrade, check the flags survived: kubeadm regenerates the manifest.
+Filebeat ships `/var/log/kubernetes/audit/audit.log` to Elasticsearch under `k8s_audit.*` (`log_source: k8s-audit`). (Until 21 Oct, `platform/host/enable-audit.sh` patched the manifest by hand, and the first upgrade would have dropped the flags.)
 
 ## Falco (SIEM track, T2)
 
