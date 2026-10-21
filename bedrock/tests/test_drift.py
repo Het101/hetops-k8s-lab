@@ -4,7 +4,8 @@ import importlib.util
 import unittest
 from pathlib import Path
 
-path = str(Path(__file__).resolve().parent.parent / "roles/drift/files/bedrock-drift")
+BEDROCK = Path(__file__).resolve().parent.parent
+path = str(BEDROCK / "roles/drift/files/bedrock-drift")
 loader = importlib.machinery.SourceFileLoader("bedrock_drift", path)
 spec = importlib.util.spec_from_loader("bedrock_drift", loader)
 drift = importlib.util.module_from_spec(spec)
@@ -42,11 +43,11 @@ class Handlers(unittest.TestCase):
             task("base : SSH uses Bedrock's settings", changed=True),
             task("base : Reload SSH", changed=True),
         ]}]}
-        changed, _ = drift.differences(data, drift.handlers())
+        changed, _ = drift.differences(data, drift.handlers(BEDROCK))
         self.assertEqual(changed, [{"role": "base", "task": "SSH uses Bedrock's settings"}])
 
     def test_the_real_handler_files_are_read(self):
-        names = drift.handlers()
+        names = drift.handlers(BEDROCK)
         for expected in [("base", "Reload SSH"), ("audit", "Restart the API server"), ("kubernetes", "Restart containerd")]:
             self.assertIn(expected, names)
 
