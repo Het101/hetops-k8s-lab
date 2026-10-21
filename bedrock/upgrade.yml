@@ -28,10 +28,13 @@
           register: upgrade_calico_image
           changed_when: false
 
+        # On the lab server this file chains calico, portmap, bandwidth, linkerd-cni. A machine without it
+        # (CI's throwaway cluster names it otherwise) simply has no Linkerd chain to wait for.
         - name: Read the CNI chain (Linkerd's CNI plugin chains itself after Calico)
           ansible.builtin.slurp:
             src: /etc/cni/net.d/10-calico.conflist
           register: upgrade_cni_before
+          failed_when: false
 
         - name: Calico moves to the new version
           when: not upgrade_calico_image.stdout.endswith(':' ~ upgrade_calico_version)
@@ -64,7 +67,7 @@
           until: "'linkerd-cni' in (upgrade_cni_after.content | b64decode)"
           retries: 30
           delay: 5
-          when: "'linkerd-cni' in (upgrade_cni_before.content | b64decode)"
+          when: "'linkerd-cni' in (upgrade_cni_before.content | default('') | b64decode)"
 
     # ── Kubernetes ──────────────────────────────────────────────────────────────────────────────────
     - name: Kubernetes
