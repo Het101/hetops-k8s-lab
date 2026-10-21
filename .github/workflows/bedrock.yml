@@ -19,8 +19,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Runners ship their own ansible-core (/opt/pipx); a venv first on PATH makes the pinned one run.
       - name: Install Ansible and ansible-lint
-        run: pipx install --include-deps ansible==14.5.0 && pipx inject ansible ansible-lint==26.10.1 --include-apps
+        run: |
+          python3 -m venv ~/ansible && ~/ansible/bin/pip install -q ansible==14.5.0 ansible-lint==26.10.1
+          echo "$HOME/ansible/bin" >> "$GITHUB_PATH"
       - name: Syntax check
         run: ansible-playbook site.yml --syntax-check
       - name: ansible-lint
@@ -40,7 +43,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Ansible (and the Kubernetes client for kubernetes.core)
-        run: pipx install --include-deps ansible==14.5.0 && pipx inject ansible kubernetes
+        run: |
+          python3 -m venv ~/ansible && ~/ansible/bin/pip install -q ansible==14.5.0 kubernetes
+          echo "$HOME/ansible/bin" >> "$GITHUB_PATH"
+      - name: The pinned Ansible is the one that runs
+        run: which ansible-playbook && ansible-playbook --version | head -1
       - name: First run, from a blank machine
         run: |
           start=$(date +%s)
