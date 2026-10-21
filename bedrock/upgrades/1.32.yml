@@ -1,0 +1,8 @@
+# The upgrade to Kubernetes 1.32 (from 1.31, one minor at a time, as kubeadm requires).
+#   ansible-playbook upgrade.yml -e @upgrades/1.32.yml --tags calico       # first: Calico 3.29 still supports 1.31
+#   ansible-playbook upgrade.yml -e @upgrades/1.32.yml --tags kubernetes   # then the cluster
+# Afterwards group_vars/lab.yml takes these same values, so site.yml describes the upgraded server.
+upgrade_kubernetes_minor: "1.32"
+upgrade_kubernetes_package_version: "1.32.13-1.1"   # the latest 1.32 patch on pkgs.k8s.io, 22 Oct 2026
+# Calico 3.27 lost security support in Oct 2024 and is not tested on 1.32; Oracle's OKE matrix tests 3.29 there.
+upgrade_calico_version: v3.29.7

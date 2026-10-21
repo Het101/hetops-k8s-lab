@@ -1,0 +1,168 @@
+# Upgrades, one step at a time, with the values from upgrades/<minor>.yml:
+#   ansible-playbook upgrade.yml -e @upgrades/1.32.yml --tags calico
+#   ansible-playbook upgrade.yml -e @upgrades/1.32.yml --tags kubernetes
+# Each step does nothing if the server is already there, so it is safe to run twice. Rehearsed in CI on a
+# throwaway cluster (job: upgrade) before it ever runs on the lab server.
+- name: Upgrade the lab server
+  hosts: lab
+  become: true
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  tasks:
+    - name: The upgrade's values are given
+      ansible.builtin.assert:
+        that:
+          - upgrade_kubernetes_minor is defined
+          - upgrade_kubernetes_package_version.startswith(upgrade_kubernetes_minor ~ '.')
+          - upgrade_calico_version is defined
+        fail_msg: "Pass the upgrade's values: -e @upgrades/<minor>.yml"
+        quiet: true
+      tags: [always]
+
+    # ── Calico ──────────────────────────────────────────────────────────────────────────────────────
+    - name: Calico
+      tags: [calico]
+      block:
+        - name: Read Calico's running version
+          ansible.builtin.command: kubectl -n kube-system get ds calico-node -o jsonpath={.spec.template.spec.containers[0].image}
+          register: upgrade_calico_image
+          changed_when: false
+
+        - name: Read the CNI chain (Linkerd's CNI plugin chains itself after Calico)
+          ansible.builtin.slurp:
+            src: /etc/cni/net.d/10-calico.conflist
+          register: upgrade_cni_before
+
+        - name: Calico moves to the new version
+          when: not upgrade_calico_image.stdout.endswith(':' ~ upgrade_calico_version)
+          block:
+            - name: Calico's manifest at the new version
+              ansible.builtin.get_url:
+                url: "https://raw.githubusercontent.com/projectcalico/calico/{{ upgrade_calico_version }}/manifests/calico.yaml"
+                dest: "/etc/kubernetes/bedrock-calico-{{ upgrade_calico_version }}.yaml"
+                mode: "0644"
+
+            # Calico's own upgrade instruction for a manifest install. The live DaemonSet matched the stock
+            # 3.27.0 manifest exactly (22 Oct), so the stock new one changes the version and nothing else.
+            - name: Apply it
+              ansible.builtin.command: >-
+                kubectl apply --server-side --force-conflicts
+                -f /etc/kubernetes/bedrock-calico-{{ upgrade_calico_version }}.yaml
+              changed_when: true
+
+            - name: Calico's pods roll out
+              ansible.builtin.command: "kubectl -n kube-system rollout status {{ item }} --timeout=300s"
+              loop: [ds/calico-node, deploy/calico-kube-controllers]
+              changed_when: false
+
+        # Calico's installer rewrites the conflist; linkerd-cni watches the directory and chains itself back
+        # (its repair controller fixes pods created in between). Do not go on until it has.
+        - name: Linkerd's CNI plugin is back in the chain
+          ansible.builtin.slurp:
+            src: /etc/cni/net.d/10-calico.conflist
+          register: upgrade_cni_after
+          until: "'linkerd-cni' in (upgrade_cni_after.content | b64decode)"
+          retries: 30
+          delay: 5
+          when: "'linkerd-cni' in (upgrade_cni_before.content | b64decode)"
+
+    # ── Kubernetes ──────────────────────────────────────────────────────────────────────────────────
+    - name: Kubernetes
+      tags: [kubernetes]
+      block:
+        - name: Read the installed packages
+          ansible.builtin.package_facts:
+
+        - name: Work out where the cluster is
+          ansible.builtin.set_fact:
+            upgrade_from: "{{ ansible_facts.packages['kubeadm'][0].version }}"
+            upgrade_from_minor: "{{ ansible_facts.packages['kubeadm'][0].version.split('.')[:2] | join('.') }}"
+            upgrade_to: "v{{ upgrade_kubernetes_package_version.split('-')[0] }}"
+
+        - name: One minor version at a time (kubeadm's rule)
+          ansible.builtin.assert:
+            that: >-
+              upgrade_from_minor == upgrade_kubernetes_minor or
+              (upgrade_from_minor.split('.')[1] | int) + 1 == (upgrade_kubernetes_minor.split('.')[1] | int)
+            fail_msg: "kubeadm {{ upgrade_from }} cannot go straight to {{ upgrade_kubernetes_minor }}"
+            quiet: true
+
+        - name: Upgrade the cluster
+          when: upgrade_from != upgrade_kubernetes_package_version
+          block:
+            # An etcd snapshot first: the one thing a failed control-plane upgrade cannot rebuild from git.
+            - name: Find the etcd pod
+              ansible.builtin.command: kubectl -n kube-system get pods -l component=etcd -o jsonpath={.items[0].metadata.name}
+              register: upgrade_etcd_pod
+              changed_when: false
+
+            - name: Snapshot etcd onto the host (/var/lib/etcd is the etcd pod's hostPath)
+              ansible.builtin.command: >-
+                kubectl -n kube-system exec {{ upgrade_etcd_pod.stdout }} -- etcdctl
+                --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt
+                --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+                snapshot save /var/lib/etcd/bedrock-before-{{ upgrade_to }}.db
+              changed_when: true
+
+            - name: Apt reads the new minor version's repository
+              ansible.builtin.copy:
+                dest: /etc/apt/sources.list.d/kubernetes.list
+                content: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ upgrade_kubernetes_minor }}/deb/ /\n"
+                mode: "0644"
+
+            - name: Apt knows the new repository
+              ansible.builtin.apt:
+                update_cache: true
+
+            - name: Kubeadm first
+              ansible.builtin.apt:
+                name: "kubeadm={{ upgrade_kubernetes_package_version }}"
+                allow_change_held_packages: true
+
+            - name: Kubeadm's plan
+              ansible.builtin.command: kubeadm upgrade plan {{ upgrade_to }}
+              register: upgrade_plan
+              changed_when: false
+
+            - name: Show the plan
+              ansible.builtin.debug:
+                msg: "{{ upgrade_plan.stdout_lines | select('search', 'kube-apiserver|etcd|CoreDNS|kube-proxy|kubelet') | list }}"
+
+            # Regenerates the control plane from kubeadm-config, which carries the audit settings (Phase 2
+            # step 3), and renews the control plane's certificates.
+            - name: Kubeadm upgrade apply
+              ansible.builtin.command: kubeadm upgrade apply {{ upgrade_to }} --yes
+              changed_when: true
+
+            - name: Then the kubelet and kubectl
+              ansible.builtin.apt:
+                name:
+                  - "kubelet={{ upgrade_kubernetes_package_version }}"
+                  - "kubectl={{ upgrade_kubernetes_package_version }}"
+                allow_change_held_packages: true
+
+            - name: The kubelet restarts on the new version
+              ansible.builtin.systemd_service:
+                name: kubelet
+                state: restarted
+                daemon_reload: true
+
+        - name: Held again
+          ansible.builtin.dpkg_selections:
+            name: "{{ item }}"
+            selection: hold
+          loop: [kubeadm, kubelet, kubectl]
+
+        - name: The node is Ready on the new version
+          ansible.builtin.command: >-
+            kubectl get node -o
+            'jsonpath={.items[0].status.nodeInfo.kubeletVersion}/{.items[0].status.conditions[?(@.type=="Ready")].status}'
+          register: upgrade_node
+          until: upgrade_node.stdout == upgrade_to ~ '/True'
+          retries: 36
+          delay: 5
+          changed_when: false
+
+        - name: The API server still has every audit flag (kubeadm regenerated its manifest)
+          ansible.builtin.include_role:
+            name: audit

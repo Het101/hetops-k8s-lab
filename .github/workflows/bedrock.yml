@@ -31,9 +31,9 @@ jobs:
       - name: The drift check's parser
         run: python3 -m unittest discover -s tests -v
       - name: Syntax check
-        run: ansible-playbook site.yml --syntax-check
+        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.32.yml --syntax-check
       - name: ansible-lint
-        run: ansible-lint site.yml
+        run: ansible-lint site.yml upgrade.yml
 
   # Phase 3: a blank arm64 Ubuntu 24.04 machine, the same playbook as the live server, a one-node
   # cluster at the end. Then a second run must change nothing (idempotence).
@@ -93,4 +93,59 @@ jobs:
             echo "- blank arm64 Ubuntu 24.04 to a Ready one-node cluster: **${BUILD_SECONDS:-?} s**"
             echo "- second run: $(grep -oE 'changed=[0-9]+' second-run.log 2>/dev/null || echo 'did not run')"
             echo "- kube $(kubectl version -o json 2>/dev/null | jq -r .serverVersion.gitVersion), $(containerd --version | awk '{print $3}')"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The next Kubernetes upgrade, rehearsed on a throwaway cluster before it runs on the lab server: build
+  # today's cluster, run upgrade.yml (Calico, then Kubernetes), check it still works, then site.yml with the
+  # upgrade's values must change nothing (so group_vars can take them as they are).
+  upgrade:
+    needs: lint
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    env:
+      UPGRADE: upgrades/1.32.yml
+    defaults:
+      run:
+        working-directory: bedrock
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Ansible (and the Kubernetes client for kubernetes.core)
+        run: |
+          python3 -m venv ~/ansible && ~/ansible/bin/pip install -q ansible==14.5.0 kubernetes
+          echo "$HOME/ansible/bin" >> "$GITHUB_PATH"
+      - name: Today's cluster
+        run: ansible-playbook site.yml > build.log || { tail -n 40 build.log; exit 1; }
+      - name: Upgrade Calico
+        run: ansible-playbook upgrade.yml -e "@$UPGRADE" --tags calico
+      - name: Upgrade Kubernetes
+        run: |
+          start=$(date +%s)
+          ansible-playbook upgrade.yml -e "@$UPGRADE" --tags kubernetes
+          echo "UPGRADE_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+      - name: Running it again changes nothing
+        run: |
+          ansible-playbook upgrade.yml -e "@$UPGRADE" | tee again.log
+          grep -E 'changed=0 +unreachable=0 +failed=0' again.log
+      - name: The upgraded cluster works, and audit logging survived
+        run: |
+          kubectl get nodes -o wide
+          kubectl -n kube-system get ds calico-node -o jsonpath='{.spec.template.spec.containers[0].image}'; echo
+          kubectl run upgrade-smoke --image=registry.k8s.io/pause:3.10 --restart=Never
+          kubectl wait --for=condition=Ready pod/upgrade-smoke --timeout=180s
+          sudo grep -c -- '--audit-policy-file' /etc/kubernetes/manifests/kube-apiserver.yaml
+          sudo tail -n 1 /var/log/kubernetes/audit/audit.log | grep -q upgrade-smoke || sudo tail -n 3 /var/log/kubernetes/audit/audit.log | head -c 400
+      - name: site.yml with the upgrade's values describes the upgraded machine
+        run: |
+          ~/ansible/bin/python -c "import yaml,json,sys; u=yaml.safe_load(open('$UPGRADE')); print(json.dumps({'kubernetes_minor': u['upgrade_kubernetes_minor'], 'kubernetes_package_version': u['upgrade_kubernetes_package_version'], 'cluster_calico_version': u['upgrade_calico_version']}))" > after.json
+          ansible-playbook site.yml -e @after.json | tee site-after.log
+          grep -E 'changed=0 +unreachable=0 +failed=0' site-after.log
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Bedrock upgrade rehearsal ($UPGRADE)"
+            echo "- Kubernetes upgrade: **${UPGRADE_SECONDS:-?} s**"
+            echo "- now: $(kubectl version -o json 2>/dev/null | jq -r .serverVersion.gitVersion), Calico $(kubectl -n kube-system get ds calico-node -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null | cut -d: -f2)"
           } >> "$GITHUB_STEP_SUMMARY"
