@@ -1,0 +1,15 @@
+# Handlers run once, at the end of the play (or at a flush_handlers), and only if a task notified them
+# AND that task changed something. They run in the order written here, whatever order they were notified.
+
+# validate: in the template checks the new file on its own; this checks it together with everything
+# else sshd reads. If it fails, the play stops here and SSH is never reloaded with a broken config.
+- name: Check the whole SSH config
+  ansible.builtin.command: sshd -t
+  changed_when: false
+
+# A reload re-reads the config for NEW connections; open sessions stay up. That is what makes the
+# "keep a second session open" rule work.
+- name: Reload SSH
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: reloaded

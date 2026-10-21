@@ -47,6 +47,25 @@
     fail_msg: "swap is on ({{ ansible_facts['swaptotal_mb'] }} MB)"
     quiet: true
 
+# SSH (Phase 2): Bedrock's settings in one drop-in file. validate: tests the rendered file with sshd before
+# it replaces anything; the handlers then test the whole config and reload SSH, only if the file changed.
+- name: SSH uses Bedrock's settings
+  ansible.builtin.template:
+    src: 10-bedrock.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-bedrock.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: sshd -t -f %s
+  register: base_ssh_dropin
+  notify:
+    - Check the whole SSH config
+    - Reload SSH
+
+# Run the handlers now, not at the end of the play, so the check below reads the new settings.
+- name: Apply a changed SSH config before checking it
+  ansible.builtin.meta: flush_handlers
+
 # A read, never a change: sshd -T prints the settings sshd is actually using, after every include.
 - name: Read SSH's effective settings
   ansible.builtin.command: sshd -T
@@ -54,10 +73,14 @@
   check_mode: false
   changed_when: false
 
-- name: SSH takes keys only, and root cannot log in with a password
+# sshd -T prints lower-case names and values, and "without-password" for prohibit-password. In check
+# mode with a pending change, sshd still runs the old settings, so the check waits for the real run.
+- name: SSH really runs with each of Bedrock's settings
   ansible.builtin.assert:
-    that:
-      - "'passwordauthentication no' in base_sshd.stdout_lines"
-      - "'permitrootlogin no' in base_sshd.stdout_lines or 'permitrootlogin without-password' in base_sshd.stdout_lines"
-    fail_msg: "SSH is weaker than expected: {{ base_sshd.stdout_lines | select('match', '^(passwordauthentication|permitrootlogin) ') | list }}"
+    that: "(item.key ~ ' ' ~ ('without-password' if item.value == 'prohibit-password' else item.value) | string | lower) in base_sshd.stdout_lines"
+    fail_msg: "sshd runs {{ base_sshd.stdout_lines | select('match', '^' ~ item.key ~ ' ') | list }}, Bedrock wants {{ item.key }} {{ item.value }}"
     quiet: true
+  loop: "{{ base_ssh | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: not (ansible_check_mode and base_ssh_dropin is changed)
