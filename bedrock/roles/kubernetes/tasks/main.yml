@@ -55,6 +55,7 @@
       - "kubeadm={{ kubernetes_package_version }}"
       - "kubelet={{ kubernetes_package_version }}"
       - "kubectl={{ kubernetes_package_version }}"
+      - conntrack               # kubeadm preflight needs it (kube-proxy); the kube packages do not pull it in
     allow_downgrade: true      # a machine with a newer containerd.io (CI runners) is brought to ours
     allow_change_held_packages: true
 
