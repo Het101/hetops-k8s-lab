@@ -2,8 +2,10 @@
 # enough: the kubelet starts it again from the unchanged manifest within seconds. kubectl is down
 # for about a minute; the sites (Coolify) are not affected.
 - name: Restart the API server
+  # crictl's request timeout defaults to 2 s; the API server takes longer to shut down cleanly, and the
+  # stop failed with DeadlineExceeded at exactly 2.03 s (CI, 21 Oct). 90 s for the call, 60 s to stop.
   ansible.builtin.shell: >-
-    crictl --runtime-endpoint unix:///run/containerd/containerd.sock stop
+    crictl --runtime-endpoint unix:///run/containerd/containerd.sock --timeout 90s stop --timeout 60
     $(crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps --name kube-apiserver -q)
   changed_when: true
 
