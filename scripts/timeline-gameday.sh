@@ -24,7 +24,7 @@ curl -s "https://lab.hetops.dev/timeline?since=30m" | jq -r --arg since "$since"
   INDEX(.id) as $by    # every event of the last 30 min: a likely cause can predate this run
   | ([.[] | select(.at >= $since)] | sort_by(.at)) as $ev
   | ($ev | map(select(.source == "chaos" and (.summary | test(" ran ")))) | first) as $start
-  | ($ev | map(select(.source != "chaos" and .source != "alert" and .at >= ($start.at // "")))) | first) as $first
+  | ($ev | map(select(.source != "chaos" and .source != "alert" and .at >= ($start.at // ""))) | first) as $first
   | ($ev | map(select(.kind == "firing" and .ref.alertname == "GameDay")) | last) as $alert
   | "events:", ($ev[] | "  \(.at[11:23])  \(.source)/\(.kind)  \(.summary)"),
     "first non-chaos event: " + (if $start and $first then "\((($first.at | ms) - ($start.at | ms)) / 1000) s after the start (\($first.source)/\($first.kind))" else "none" end),
