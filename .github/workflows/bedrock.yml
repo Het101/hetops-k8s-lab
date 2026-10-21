@@ -28,6 +28,8 @@ jobs:
         run: |
           python3 -m venv ~/ansible && ~/ansible/bin/pip install -q ansible==14.5.0 ansible-lint==26.10.1
           echo "$HOME/ansible/bin" >> "$GITHUB_PATH"
+      - name: The drift check's parser
+        run: python3 -m unittest discover -s tests -v
       - name: Syntax check
         run: ansible-playbook site.yml --syntax-check
       - name: ansible-lint
@@ -61,6 +63,11 @@ jobs:
         run: |
           ansible-playbook site.yml | tee second-run.log
           grep -E 'changed=0 +unreachable=0 +failed=0' second-run.log
+      - name: The nightly drift check runs, and finds nothing on a machine the playbook just built
+        run: |
+          sudo systemctl start bedrock-drift.service
+          sudo journalctl -u bedrock-drift.service --no-pager -o cat | tail -n 5 | tee drift.log
+          grep -q '^0 changed, 0 failed' drift.log
       - name: The cluster runs a pod, and the audit log is being written
         run: |
           kubectl get nodes -o wide

@@ -1,0 +1,14 @@
+# Managed by Bedrock (roles/drift). Check mode only: this never changes the server.
+[Unit]
+Description=Bedrock drift check (ansible-playbook --check, reported to the Change Timeline)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User={{ drift_user }}
+WorkingDirectory={{ drift_bedrock_dir }}
+Environment=BEDROCK_DIR={{ drift_bedrock_dir }}
+Environment=PATH={{ drift_ansible_bin }}:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/bedrock-drift
+TimeoutStartSec=30min

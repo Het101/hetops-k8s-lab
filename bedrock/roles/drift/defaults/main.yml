@@ -1,0 +1,7 @@
+# The nightly check runs as the user who runs ansible-playbook (their kubeconfig, their Ansible, their
+# passwordless sudo for become), from this checkout of the repo.
+drift_user: "{{ lookup('ansible.builtin.env', 'USER') }}"
+drift_bedrock_dir: "{{ playbook_dir }}"
+# Ansible's own bin directory (pipx on the server, a venv in CI), so the timer finds ansible-playbook.
+drift_ansible_bin: "{{ ansible_playbook_python | dirname }}"
+drift_on_calendar: "*-*-* 02:30:00"   # 02:30 UTC = 08:00 IST, after the 03:00 IST chaos self-test

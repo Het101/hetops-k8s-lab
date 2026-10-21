@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Bedrock drift check: run the playbook in check mode and tell the Change Timeline what differs.
+
+Run nightly by bedrock-drift.timer (roles/drift). Nothing is changed: --check only. The timeline gets
+a count and the roles, never task names (those stay here, in the journal: journalctl -u bedrock-drift).
+It is told only when something differs, or once when the host matches Bedrock again.
+"""
+import json
+import os
+import re
+import socket
+import subprocess
+import sys
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+BEDROCK = Path(os.environ.get("BEDROCK_DIR", Path(__file__).resolve().parent))
+TOKEN = Path("/etc/bedrock/timeline-token")
+STATE = Path.home() / ".local/state/bedrock/last"
+
+
+def check():
+    env = {**os.environ, "ANSIBLE_STDOUT_CALLBACK": "ansible.posix.json"}
+    run = subprocess.run(["ansible-playbook", "site.yml", "--check"], cwd=BEDROCK, env=env,
+                         capture_output=True, text=True, timeout=1800)
+    try:
+        return json.loads(run.stdout), run
+    except json.JSONDecodeError:
+        return None, run
+
+
+def differences(data):
+    """(changed, failed) tasks as {role, task}; the json callback names tasks 'role : task'."""
+    changed, failed = [], []
+    for play in data.get("plays", []):
+        for t in play.get("tasks", []):
+            name = t.get("task", {}).get("name", "")
+            role, _, task = name.partition(" : ") if " : " in name else ("", "", name)
+            for result in t.get("hosts", {}).values():
+                if result.get("failed") and not result.get("ignore_errors"):
+                    failed.append({"role": role, "task": task})
+                elif result.get("changed"):
+                    changed.append({"role": role, "task": task})
+    return changed, failed
+
+
+def post(body):
+    if not TOKEN.exists():
+        print("no /etc/bedrock/timeline-token: not reporting (a machine without the lab's timeline)")
+        return True
+    ip = subprocess.run(["kubectl", "-n", "timeline", "get", "svc", "timeline", "-o", "jsonpath={.spec.clusterIP}"],
+                        capture_output=True, text=True, timeout=30).stdout.strip()
+    if not re.fullmatch(r"[0-9.]+", ip):
+        print(f"timeline service not found ({ip!r}): not reporting")
+        return False
+    req = urllib.request.Request(f"http://{ip}:8080/ingest/ansible", data=json.dumps(body).encode(), method="POST",
+                                 headers={"content-type": "application/json",
+                                          "authorization": f"Bearer {TOKEN.read_text().strip()}"})
+    with urllib.request.urlopen(req, timeout=10) as res:
+        print(f"timeline answered {res.status}")
+        return 200 <= res.status < 300
+
+
+def main():
+    data, run = check()
+    commit = subprocess.run(["git", "-C", str(BEDROCK), "rev-parse", "--short=12", "HEAD"],
+                            capture_output=True, text=True).stdout.strip()
+    if data is None:
+        changed, failed = [], [{"role": "bedrock", "task": "the playbook did not run"}]
+        print(run.stderr[-2000:], file=sys.stderr)
+    else:
+        changed, failed = differences(data)
+    for kind, tasks in (("FAILED", failed), ("would change", changed)):
+        for t in tasks:
+            print(f"{kind}: {t['role']} : {t['task']}")
+    now = "drift" if changed or failed else "clean"
+    last = STATE.read_text().strip() if STATE.exists() else "clean"
+    print(f"{len(changed)} changed, {len(failed)} failed, at {commit}; last time: {last}")
+    ok = True
+    if now == "drift" or last == "drift":
+        ok = post({"host": socket.gethostname(), "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                   "commit": commit, "changed": changed, "failed": failed, "cleared": now == "clean"})
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(now + "\n")
+    sys.exit(0 if ok else 1)
+
+
+if __name__ == "__main__":
+    main()
