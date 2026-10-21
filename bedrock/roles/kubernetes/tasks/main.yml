@@ -32,6 +32,15 @@
       {{ ansible_facts.packages | dict2items | map(attribute='key') | select('match', '^containerd') | list }}
     quiet: true
 
+# Discovery finding: containerd.io was not held, so a routine apt upgrade from Docker's repo could restart
+# the one containerd under every site and the lab at once. Held, a runtime upgrade becomes a step someone
+# decides on. Side effect, on purpose: a docker-ce upgrade that needs a newer containerd.io is "kept back".
+- name: Apt will not upgrade the shared containerd on its own
+  ansible.builtin.dpkg_selections:
+    name: containerd.io
+    selection: hold
+  register: kubernetes_containerd_hold
+
 - name: Read which packages apt holds back
   ansible.builtin.command: apt-mark showhold
   register: kubernetes_held
@@ -44,6 +53,13 @@
     fail_msg: "{{ item }} is not held: an apt upgrade could move it to another minor version"
     quiet: true
   loop: [kubeadm, kubelet, kubectl]
+
+- name: The shared containerd is held too
+  ansible.builtin.assert:
+    that: "'containerd.io' in kubernetes_held.stdout_lines"
+    fail_msg: "containerd.io is not held"
+    quiet: true
+  when: not (ansible_check_mode and kubernetes_containerd_hold is changed)   # check mode: not held yet
 
 - name: Read containerd's config
   ansible.builtin.slurp:
