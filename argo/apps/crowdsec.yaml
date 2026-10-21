@@ -26,6 +26,28 @@ spec:
                 whitelist:
                   reason: own infrastructure
                   ip: ["140.245.13.138"]
+          # The chart's default config.yaml.local (auto-registration, kept as is) plus agents_autodelete.
+          # Found on the 21 Oct reboot: the agent pod restarted under the same name, its credentials (in
+          # emptyDir) were gone, and "cscli lapi register" got 403 "user already exist" in a loop, so the IPS
+          # stopped detecting until a person deleted the machine. Now the LAPI deletes agents silent for 15 min,
+          # and the agent's next retry registers. The GC runs hourly, so it heals within about 15-75 min.
+          # Bans survive: deleting a machine does not cascade to its alerts (schema, v1.8.1); only an alert's
+          # own decisions cascade. The durable fix is mTLS agent auth (tls.enabled), which needs cert-manager.
+          config.yaml.local: |
+            api:
+              server:
+                auto_registration:
+                  enabled: true
+                  token: "${REGISTRATION_TOKEN}"
+                  allowed_ranges:
+                    - "127.0.0.1/32"
+                    - "192.168.0.0/16"
+                    - "10.0.0.0/8"
+                    - "172.16.0.0/12"
+            db_config:
+              flush:
+                agents_autodelete:
+                  login_password: 15m
         container_runtime: containerd          # kubeadm uses containerd, not docker (log line format)
         agent:
           acquisition:
