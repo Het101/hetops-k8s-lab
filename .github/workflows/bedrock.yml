@@ -119,6 +119,15 @@ jobs:
         run: ansible-playbook site.yml > build.log || { tail -n 40 build.log; exit 1; }
       - name: Upgrade Calico
         run: ansible-playbook upgrade.yml -e "@$UPGRADE" --tags calico
+      # The live server's state after the failed apply of 22 Oct: kubeadm already at the target, the cluster
+      # not. The upgrade must finish from there.
+      - name: Start from a failed apply (kubeadm upgraded, cluster not)
+        run: |
+          v=$(~/ansible/bin/python -c "import yaml; print(yaml.safe_load(open('$UPGRADE'))['upgrade_kubernetes_package_version'])")
+          m=$(~/ansible/bin/python -c "import yaml; print(yaml.safe_load(open('$UPGRADE'))['upgrade_kubernetes_minor'])")
+          echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$m/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq --allow-change-held-packages "kubeadm=$v"
+          kubeadm version -o short; kubectl version -o json | jq -r .serverVersion.gitVersion
       - name: Upgrade Kubernetes
         run: |
           start=$(date +%s)

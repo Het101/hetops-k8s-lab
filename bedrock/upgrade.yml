@@ -76,11 +76,23 @@
         - name: Read the installed packages
           ansible.builtin.package_facts:
 
+        # Where the cluster is = the version the API server runs, not the kubeadm package: kubeadm is upgraded
+        # first, so after a failed apply (live, 22 Oct) the package says 1.32 while the cluster is still 1.31,
+        # and a re-run keyed on the package would have skipped the upgrade.
+        - name: Read the API server's manifest
+          ansible.builtin.slurp:
+            src: /etc/kubernetes/manifests/kube-apiserver.yaml
+          register: upgrade_apiserver_manifest
+
         - name: Work out where the cluster is
           ansible.builtin.set_fact:
-            upgrade_from: "{{ ansible_facts.packages['kubeadm'][0].version }}"
-            upgrade_from_minor: "{{ ansible_facts.packages['kubeadm'][0].version.split('.')[:2] | join('.') }}"
+            upgrade_from: >-
+              {{ (upgrade_apiserver_manifest.content | b64decode | regex_search('kube-apiserver:(v[0-9.]+)', '\1'))[0] }}
             upgrade_to: "v{{ upgrade_kubernetes_package_version.split('-')[0] }}"
+
+        - name: Work out the minor version it is on
+          ansible.builtin.set_fact:
+            upgrade_from_minor: "{{ upgrade_from[1:].split('.')[:2] | join('.') }}"
 
         - name: One minor version at a time (kubeadm's rule)
           ansible.builtin.assert:
@@ -91,7 +103,7 @@
             quiet: true
 
         - name: Upgrade the cluster
-          when: upgrade_from != upgrade_kubernetes_package_version
+          when: upgrade_from != upgrade_to
           block:
             # An etcd snapshot first: the one thing a failed control-plane upgrade cannot rebuild from git.
             - name: Find the etcd pod
@@ -133,10 +145,30 @@
               ansible.builtin.debug:
                 msg: "{{ upgrade_plan.stdout_lines | select('search', 'kube-apiserver|etcd|CoreDNS|kube-proxy|kubelet') | list }}"
 
+            # kubeadm asks the API server for the etcd pods before it touches the control plane. On 22 Oct,
+            # right after Calico's rollout made every controller reconnect, that call timed out and kubeadm rolled
+            # back. So: wait until the API server answers, and if apply still fails, wait and try once more
+            # (kubeadm rolls back on failure, and re-running is its documented recovery).
+            - name: The API server answers before kubeadm starts
+              ansible.builtin.uri:
+                url: https://127.0.0.1:6443/readyz
+                validate_certs: false
+              register: upgrade_readyz
+              until: upgrade_readyz.status == 200
+              retries: 36
+              delay: 5
+
             # Regenerates the control plane from kubeadm-config, which carries the audit settings (Phase 2
-            # step 3), and renews the control plane's certificates.
+            # step 3), and renews the control plane's certificates. etcd only when the plan changes its version
+            # (1.31 to 1.32: 3.5.24-0 to 3.5.24-0): an etcd restart is the slow part on this server.
             - name: Kubeadm upgrade apply
-              ansible.builtin.command: kubeadm upgrade apply {{ upgrade_to }} --yes
+              ansible.builtin.command: >-
+                kubeadm upgrade apply {{ upgrade_to }} --yes
+                --etcd-upgrade={{ upgrade_etcd | default(false) | string | lower }}
+              register: upgrade_apply
+              until: upgrade_apply.rc == 0
+              retries: 1
+              delay: 60
               changed_when: true
 
             - name: Then the kubelet and kubectl
