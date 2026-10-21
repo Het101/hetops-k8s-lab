@@ -1,6 +1,15 @@
-# What the lab server really has, written down from the Phase 1 discovery (sheet step 3).
-# In Phase 1 these describe the server; they do not change it.
+# What the lab server really has, written down from discovery (Phase 1 step 3, Phase 3 step 1).
+# On the live server these describe it (check mode: changed=0); on a blank machine they build it.
 
-# The kube packages' minor version. Discovery, 21 Oct: kubeadm, kubelet and kubectl 1.31.14-1.1, all
-# held. 1.31 left upstream support in Oct 2025: upgrading is one minor at a time, by turning this dial.
+# The kube packages. Discovery, 21 Oct: 1.31.14-1.1, all held. 1.31 left upstream support in Oct 2025:
+# upgrading is one minor at a time, by turning this dial (and kubernetes_package_version with it).
 kubernetes_minor: "1.31"
+kubernetes_package_version: "1.31.14-1.1"
+
+# The one containerd, shared with Coolify's Docker (namespaces moby and k8s.io). Held.
+containerd_package_version: "2.2.3-1~ubuntu.24.04~noble"
+
+# The cluster, as kubeadm-config and kube-system show it. Calico 3.27.0 from the plain manifest (no
+# Tigera operator), whose default pool is this pod subnet.
+cluster_pod_subnet: 192.168.0.0/16
+cluster_calico_version: v3.27.0

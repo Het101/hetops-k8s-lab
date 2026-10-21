@@ -1,9 +1,11 @@
-# Phase 1 (adopt): run only as   ansible-playbook site.yml --check --diff
-# Done when the recap says changed=0 failed=0 for my-workspace.
+# The lab server, from the OS up to a running cluster.
+#   On the live server:  ansible-playbook site.yml --check --diff   (it describes the server: changed=0)
+#   On a blank machine:  ansible-playbook site.yml                  (it builds one: CI, Phase 3)
 - name: The lab server
   hosts: lab
   become: true
   roles:
     - base
     - kubernetes
+    - cluster
     - audit

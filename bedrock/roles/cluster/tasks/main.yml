@@ -1,0 +1,85 @@
+# The cluster itself: kubeadm init, the user's kubeconfig, Calico, a Ready node. Every step that
+# CREATES runs only on a machine without a cluster, so on the live server this role only reads (ok).
+
+- name: Is this machine already a cluster?
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: cluster_admin_conf
+
+- name: Build the cluster (only on a machine without one)
+  when: not cluster_admin_conf.stat.exists
+  block:
+    - name: The audit policy is in place before the API server first starts
+      ansible.builtin.include_role:
+        name: audit
+        tasks_from: policy
+
+    - name: Kubeadm's config for this cluster
+      ansible.builtin.template:
+        src: kubeadm.yaml.j2
+        dest: /etc/kubernetes/bedrock-kubeadm.yaml
+        mode: "0600"
+
+    - name: Kubeadm init
+      ansible.builtin.command: kubeadm init --config /etc/kubernetes/bedrock-kubeadm.yaml
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+# The user running ansible-playbook gets a kubeconfig (the audit and cluster roles' kubernetes.core
+# tasks read it on the controller, as that user). An existing one is never replaced.
+- name: The controller user has a .kube directory
+  ansible.builtin.file:
+    path: "{{ lookup('ansible.builtin.env', 'HOME') }}/.kube"
+    state: directory
+    owner: "{{ lookup('ansible.builtin.env', 'USER') }}"
+    mode: "0700"
+  when: not cluster_admin_conf.stat.exists
+
+- name: The controller user can reach the cluster
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    remote_src: true
+    dest: "{{ lookup('ansible.builtin.env', 'HOME') }}/.kube/config"
+    owner: "{{ lookup('ansible.builtin.env', 'USER') }}"
+    mode: "0600"
+    force: false
+  when: not cluster_admin_conf.stat.exists
+
+- name: Look for Calico
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  kubernetes.core.k8s_info:
+    kind: DaemonSet
+    namespace: kube-system
+    name: calico-node
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: cluster_calico
+
+- name: Calico is installed (only where it is missing)
+  when: cluster_calico.resources | length == 0
+  block:
+    - name: Calico's manifest, at the written-down version
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/projectcalico/calico/{{ cluster_calico_version }}/manifests/calico.yaml"
+        dest: "/etc/kubernetes/bedrock-calico-{{ cluster_calico_version }}.yaml"
+        mode: "0644"
+
+    - name: Calico runs
+      vars:
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"
+      kubernetes.core.k8s:
+        state: present
+        src: "/etc/kubernetes/bedrock-calico-{{ cluster_calico_version }}.yaml"
+        kubeconfig: "{{ audit_kubeconfig }}"
+
+- name: The node is Ready
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  kubernetes.core.k8s_info:
+    kind: Node
+    kubeconfig: "{{ audit_kubeconfig }}"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 300

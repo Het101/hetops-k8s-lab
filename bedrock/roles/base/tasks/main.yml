@@ -25,6 +25,12 @@
     group: root
     mode: "0644"
 
+- name: Those modules are loaded now, not only after a reboot
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: [overlay, br_netfilter]
+
 - name: The kernel forwards packets between pods
   ansible.posix.sysctl:
     name: net.ipv4.ip_forward
@@ -41,11 +47,32 @@
     sysctl_file: /etc/sysctl.d/k8s.conf
     state: present
 
-- name: Swap is off (the kubelet refuses to run with it by default)
+# The kubelet refuses to run with swap on (by default). The live server has none; a fresh machine
+# (a CI runner) may: turn it off now and keep it off after a reboot.
+- name: Swap is turned off
+  ansible.builtin.command: swapoff -a
+  when: ansible_facts['swaptotal_mb'] | int > 0
+  register: base_swapoff
+  changed_when: true
+
+- name: Swap stays off after a reboot
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#\s].*\sswap\s.*)$'
+    replace: '# \1   # off: kubelet (Bedrock)'
+
+- name: Read swap
+  ansible.builtin.command: swapon --show --noheadings
+  register: base_swap
+  check_mode: false
+  changed_when: false
+
+- name: Swap is off
   ansible.builtin.assert:
-    that: ansible_facts['swaptotal_mb'] == 0
-    fail_msg: "swap is on ({{ ansible_facts['swaptotal_mb'] }} MB)"
+    that: base_swap.stdout | length == 0
+    fail_msg: "swap is on: {{ base_swap.stdout }}"
     quiet: true
+  when: not (ansible_check_mode and base_swapoff is changed)
 
 # SSH (Phase 2): Bedrock's settings in one drop-in file. validate: tests the rendered file with sshd before
 # it replaces anything; the handlers then test the whole config and reload SSH, only if the file changed.

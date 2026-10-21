@@ -1,0 +1,32 @@
+# Managed by Bedrock (roles/cluster). Used ONCE, by kubeadm init on a machine that has no cluster.
+# It reproduces the lab's cluster as discovery found it: v1beta4, the pod subnet Calico's default pool
+# uses, no control-plane taint (one node runs everything), and the audit settings from roles/audit.
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+nodeRegistration:
+  criSocket: unix:///var/run/containerd/containerd.sock
+  taints: []
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+kubernetesVersion: v{{ kubernetes_package_version.split('-')[0] }}
+networking:
+  podSubnet: {{ cluster_pod_subnet }}
+apiServer:
+  extraArgs:
+{% for arg in audit_api_server_args %}
+    - name: {{ arg.name }}
+      value: "{{ arg.value }}"
+{% endfor %}
+  extraVolumes:
+{% for volume in audit_api_server_volumes %}
+    - name: {{ volume.name }}
+      hostPath: {{ volume.hostPath }}
+      mountPath: {{ volume.mountPath }}
+      readOnly: {{ volume.readOnly | lower }}
+      pathType: {{ volume.pathType }}
+{% endfor %}
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd

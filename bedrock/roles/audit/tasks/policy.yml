@@ -1,0 +1,20 @@
+# The policy file alone, so the cluster role can put it in place BEFORE kubeadm init starts an API
+# server that reads it (roles/cluster). A change restarts a running API server (handlers).
+- name: The audit policy directory exists
+  ansible.builtin.file:
+    path: /etc/kubernetes/audit
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: The audit policy on the server is the one in git
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../platform/host/audit-policy.yaml"
+    dest: /etc/kubernetes/audit/policy.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Restart the API server
+    - Wait for the API server
