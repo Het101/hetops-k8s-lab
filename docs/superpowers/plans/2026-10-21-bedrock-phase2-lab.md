@@ -170,3 +170,56 @@ sudo kubeadm upgrade diff v1.31.14 2>&1 | tail -n 60
 `kubeadm upgrade diff` changes nothing: it prints the diff between today's static pod manifests and what an upgrade would write. Lines starting with `-` would be removed.
 
 Paste all three outputs to Claude. Step 3b, the role, is written from what they show.
+
+**Result of 3a (21 Oct):**
+- The ClusterConfiguration is `v1beta4` with `apiServer: {}`: no audit settings at all.
+- `kubeadm upgrade diff` removed all five `--audit-*` flags and both volumes, and **nothing else**. So the stored config already reproduces the rest of the manifest exactly; only the audit part is missing.
+
+### 3b. Kubeadm's config carries the audit settings
+
+**What the role does now (`roles/audit`):**
+1. **Policy file:** the same as before, but a change to it now notifies two handlers. `Restart the API server` stops its container, because the API server reads the policy only at start; the kubelet starts it again from the unchanged manifest. `Wait for the API server` polls `/readyz`.
+2. **kubeadm's config:**
+   - read the `kubeadm-config` ConfigMap with `kubernetes.core.k8s_info`;
+   - parse the stored YAML with `from_yaml`;
+   - merge in the audit `extraArgs` and `extraVolumes`, keeping any others;
+   - write it back with `kubernetes.core.k8s`, **only if the parsed config differs**. A text compare would report a change every run, because kubeadm's formatting never matches Ansible's byte for byte. This is the documented kubeadm way to reconfigure a cluster.
+3. **Manifest check:** read `kube-apiserver.yaml` and check each flag is there.
+
+**No restart in this step:** the API server already runs with the flags. Only kubeadm's record of them changes, and the policy file is unchanged, so no handler is notified.
+
+**One-time setup:** the `kubernetes.core` modules need the Python `kubernetes` client inside Ansible's environment.
+
+```bash
+pipx inject ansible kubernetes
+```
+
+**Predict:**
+- Which task is `changed`?
+- Does the API server restart?
+- What will `kubeadm upgrade diff` show *after* the apply?
+
+```bash
+cd ~/hetops-k8s-lab && git pull && cd bedrock
+ansible-playbook site.yml --check --diff
+```
+
+**Expected:**
+- `Kubeadm's configuration carries the audit settings` is `changed`, and the diff shows the ClusterConfiguration gaining `extraArgs` and `extraVolumes`;
+- no handler runs;
+- recap `changed=1`, `failed=0`.
+
+### 3c. Apply and prove it
+
+```bash
+ansible-playbook site.yml --diff
+sudo kubeadm upgrade diff v1.31.14 2>&1 | tail -n 40
+ansible-playbook site.yml --check --diff
+```
+
+**Expected:**
+- the apply: `changed=1`, and every audit flag check `ok`;
+- `kubeadm upgrade diff` no longer **removes** any `--audit-*` line. It may still show some lines moving, because kubeadm writes flags in alphabetical order and the script had put them first. They are the same lines, just reordered;
+- the second check: `changed=0`.
+
+After this, `platform/host/enable-audit.sh` is retired in the next PR. Bedrock owns the policy and the flags, and a kubeadm upgrade keeps them.
