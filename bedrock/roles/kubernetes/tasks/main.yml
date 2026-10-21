@@ -1,11 +1,63 @@
-# containerd and the kube packages: installed, held at one minor version, and containerd using the
-# systemd cgroup driver (the kubelet's default since 1.22; a mismatch makes pods restart in a loop).
+# containerd and the kube packages. Phase 3: these tasks CREATE what discovery found, byte for byte,
+# so on the live server they all report ok (check mode changed=0) and on a blank machine they build it.
 
 - name: The kube version has been written down
   ansible.builtin.assert:
-    that: kubernetes_minor | length > 0
-    fail_msg: "Set kubernetes_minor in group_vars/lab.yml from the discovery step (dpkg-query -W kubeadm)"
+    that:
+      - kubernetes_minor | length > 0
+      - kubernetes_package_version.startswith(kubernetes_minor ~ '.')
+    fail_msg: "Set kubernetes_minor and kubernetes_package_version in group_vars/lab.yml"
     quiet: true
+
+# ── apt sources: the exact files the server has (discovery: 110 and 108 bytes, one line each) ──
+- name: Docker's apt key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: false              # an existing key is kept, never re-downloaded
+
+- name: Docker's apt source (containerd.io comes from it)
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/docker.list
+    content: >                # folded: one line, ending in a newline, exactly as the live file
+      deb [arch=arm64 signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable
+    mode: "0644"
+  register: kubernetes_docker_source
+
+- name: The Kubernetes apt key (dearmored)
+  ansible.builtin.shell: >-
+    set -o pipefail &&
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_minor }}/deb/Release.key
+    | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    executable: /bin/bash
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: The Kubernetes apt source, for this minor version
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    content: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_minor }}/deb/ /\n"
+    mode: "0644"
+  register: kubernetes_kube_source
+
+- name: Apt knows the new sources
+  ansible.builtin.apt:
+    update_cache: true
+  when: kubernetes_docker_source is changed or kubernetes_kube_source is changed
+
+# ── packages, pinned, then held ──
+- name: Containerd and the kube packages are installed at the written-down versions
+  ansible.builtin.apt:
+    name:
+      - "containerd.io={{ containerd_package_version }}"
+      - "kubeadm={{ kubernetes_package_version }}"
+      - "kubelet={{ kubernetes_package_version }}"
+      - "kubectl={{ kubernetes_package_version }}"
+      - conntrack               # kubeadm preflight needs it (kube-proxy); the kube packages do not pull it in
+    allow_downgrade: true      # a machine with a newer containerd.io (CI runners) is brought to ours
+    allow_change_held_packages: true
 
 - name: Read the installed packages
   ansible.builtin.package_facts:
@@ -14,8 +66,8 @@
   ansible.builtin.assert:
     that:
       - item in ansible_facts.packages
-      - ansible_facts.packages[item][0].version.startswith(kubernetes_minor ~ '.')
-    fail_msg: "{{ item }}: {{ ansible_facts.packages[item][0].version | default('not installed') }}, expected {{ kubernetes_minor }}.x"
+      - ansible_facts.packages[item][0].version == kubernetes_package_version
+    fail_msg: "{{ item }}: {{ ansible_facts.packages[item][0].version | default('not installed') }}, expected {{ kubernetes_package_version }}"
     quiet: true
   loop: [kubeadm, kubelet, kubectl]
 
@@ -35,11 +87,12 @@
 # Discovery finding: containerd.io was not held, so a routine apt upgrade from Docker's repo could restart
 # the one containerd under every site and the lab at once. Held, a runtime upgrade becomes a step someone
 # decides on. Side effect, on purpose: a docker-ce upgrade that needs a newer containerd.io is "kept back".
-- name: Apt will not upgrade the shared containerd on its own
+- name: Apt holds the runtime and the kube packages
   ansible.builtin.dpkg_selections:
-    name: containerd.io
+    name: "{{ item }}"
     selection: hold
-  register: kubernetes_containerd_hold
+  loop: [containerd.io, kubeadm, kubelet, kubectl]
+  register: kubernetes_holds
 
 - name: Read which packages apt holds back
   ansible.builtin.command: apt-mark showhold
@@ -50,24 +103,52 @@
 - name: Apt will not upgrade them behind kubeadm's back
   ansible.builtin.assert:
     that: item in kubernetes_held.stdout_lines
-    fail_msg: "{{ item }} is not held: an apt upgrade could move it to another minor version"
+    fail_msg: "{{ item }} is not held: an apt upgrade could move it to another version"
     quiet: true
-  loop: [kubeadm, kubelet, kubectl]
+  loop: [containerd.io, kubeadm, kubelet, kubectl]
+  when: not (ansible_check_mode and kubernetes_holds is changed)   # check mode: not held yet
 
-- name: The shared containerd is held too
-  ansible.builtin.assert:
-    that: "'containerd.io' in kubernetes_held.stdout_lines"
-    fail_msg: "containerd.io is not held"
-    quiet: true
-  when: not (ansible_check_mode and kubernetes_containerd_hold is changed)   # check mode: not held yet
-
+# ── containerd's config ──
+# containerd.io ships a config that disables the CRI plugin (Kubernetes cannot use it). The live server
+# has a full one (version = 3, SystemdCgroup = true at line 109). So a full default config is written
+# ONLY when the file lacks SystemdCgroup = true: the live file is never rewritten (rewriting it would
+# restart containerd under every site).
 - name: Read containerd's config
   ansible.builtin.slurp:
     src: /etc/containerd/config.toml
   register: kubernetes_containerd_config
 
+- name: Read containerd's own default config (only for a machine without a full one)
+  ansible.builtin.command: containerd config default
+  register: kubernetes_containerd_default
+  check_mode: false
+  changed_when: false
+  when: "'SystemdCgroup = true' not in (kubernetes_containerd_config.content | b64decode)"
+
+- name: Containerd has a full config with the systemd cgroup driver
+  ansible.builtin.copy:
+    dest: /etc/containerd/config.toml
+    content: "{{ kubernetes_containerd_default.stdout | regex_replace('SystemdCgroup = false', 'SystemdCgroup = true') }}\n"
+    mode: "0644"
+  when: kubernetes_containerd_default is not skipped
+  notify: Restart containerd
+
+- name: Apply a new containerd config before the cluster needs it
+  ansible.builtin.meta: flush_handlers
+
+- name: Read containerd's config as it is now
+  ansible.builtin.slurp:
+    src: /etc/containerd/config.toml
+  register: kubernetes_containerd_final
+
 - name: Containerd uses the systemd cgroup driver
   ansible.builtin.assert:
-    that: "'SystemdCgroup = true' in (kubernetes_containerd_config.content | b64decode)"
+    that: "'SystemdCgroup = true' in (kubernetes_containerd_final.content | b64decode)"
     fail_msg: "SystemdCgroup is not true in /etc/containerd/config.toml"
     quiet: true
+  when: not (ansible_check_mode and kubernetes_containerd_default is not skipped)
+
+- name: The kubelet starts at boot
+  ansible.builtin.systemd_service:
+    name: kubelet
+    enabled: true

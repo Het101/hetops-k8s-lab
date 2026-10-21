@@ -1,0 +1,6 @@
+# Only when a blank machine got its first full containerd config. On the live server this never runs:
+# the config is never rewritten there (a restart would bounce every site and the lab).
+- name: Restart containerd
+  ansible.builtin.systemd_service:
+    name: containerd
+    state: restarted

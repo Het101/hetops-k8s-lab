@@ -7,16 +7,8 @@
 #    every audit flag and both volumes, and nothing else.
 # 3. The running manifest has the flags (a read).
 
-- name: The audit policy on the server is the one in git
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../platform/host/audit-policy.yaml"
-    dest: /etc/kubernetes/audit/policy.yaml
-    owner: root
-    group: root
-    mode: "0644"
-  notify:
-    - Restart the API server
-    - Wait for the API server
+- name: The audit policy
+  ansible.builtin.import_tasks: policy.yml
 
 # The kubernetes.core modules need the Python `kubernetes` client. Modules run with the managed host's
 # Python (/usr/bin/python3.12, no client; Ubuntu's python3-kubernetes is too old); the client is in

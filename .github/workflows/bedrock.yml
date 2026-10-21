@@ -1,5 +1,4 @@
-# Bedrock: catch a broken playbook in the PR, before it is run on the lab server.
-# Phase 3 adds the rebuild-from-nothing job here.
+# Bedrock: catch a broken playbook in the PR, and prove it rebuilds the lab server from nothing.
 name: bedrock
 on:
   pull_request:
@@ -7,6 +6,7 @@ on:
   push:
     branches: [main]
     paths: ["bedrock/**", "platform/host/**", ".github/workflows/bedrock.yml"]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -19,9 +19,57 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Runners ship their own ansible-core (/opt/pipx); a venv first on PATH makes the pinned one run.
       - name: Install Ansible and ansible-lint
-        run: pipx install --include-deps ansible==14.5.0 && pipx inject ansible ansible-lint==26.10.1 --include-apps
+        run: |
+          python3 -m venv ~/ansible && ~/ansible/bin/pip install -q ansible==14.5.0 ansible-lint==26.10.1
+          echo "$HOME/ansible/bin" >> "$GITHUB_PATH"
       - name: Syntax check
         run: ansible-playbook site.yml --syntax-check
       - name: ansible-lint
         run: ansible-lint site.yml
+
+  # Phase 3: a blank arm64 Ubuntu 24.04 machine, the same playbook as the live server, a one-node
+  # cluster at the end. Then a second run must change nothing (idempotence).
+  rebuild:
+    needs: lint
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: bedrock
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Ansible (and the Kubernetes client for kubernetes.core)
+        run: |
+          python3 -m venv ~/ansible && ~/ansible/bin/pip install -q ansible==14.5.0 kubernetes
+          echo "$HOME/ansible/bin" >> "$GITHUB_PATH"
+      - name: The pinned Ansible is the one that runs
+        run: which ansible-playbook && ansible-playbook --version | head -1
+      - name: First run, from a blank machine
+        run: |
+          start=$(date +%s)
+          ansible-playbook site.yml --diff
+          echo "BUILD_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+      - name: Second run changes nothing
+        run: |
+          ansible-playbook site.yml | tee second-run.log
+          grep -E 'changed=0 +unreachable=0 +failed=0' second-run.log
+      - name: The cluster runs a pod, and the audit log is being written
+        run: |
+          kubectl get nodes -o wide
+          kubectl run bedrock-smoke --image=registry.k8s.io/pause:3.10 --restart=Never
+          kubectl wait --for=condition=Ready pod/bedrock-smoke --timeout=180s
+          sudo test -s /var/log/kubernetes/audit/audit.log
+          sudo tail -n 1 /var/log/kubernetes/audit/audit.log | head -c 300; echo
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Bedrock rebuild"
+            echo "- blank arm64 Ubuntu 24.04 to a Ready one-node cluster: **${BUILD_SECONDS:-?} s**"
+            echo "- second run: $(grep -oE 'changed=[0-9]+' second-run.log 2>/dev/null || echo 'did not run')"
+            echo "- kube $(kubectl version -o json 2>/dev/null | jq -r .serverVersion.gitVersion), $(containerd --version | awk '{print $3}')"
+          } >> "$GITHUB_STEP_SUMMARY"
