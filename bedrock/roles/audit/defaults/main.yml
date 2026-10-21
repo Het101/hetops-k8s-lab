@@ -12,5 +12,7 @@ audit_api_server_volumes:
   - { name: audit-policy, hostPath: /etc/kubernetes/audit, mountPath: /etc/kubernetes/audit, readOnly: true, pathType: DirectoryOrCreate }
   - { name: audit-log, hostPath: /var/log/kubernetes/audit, mountPath: /var/log/kubernetes/audit, readOnly: false, pathType: DirectoryOrCreate }
 
-# Root's view of the cluster (the playbook runs with become).
-audit_kubeconfig: /etc/kubernetes/admin.conf
+# The kubernetes.core modules' action plugin reads this file on the CONTROLLER, as the user running
+# ansible-playbook, before become applies (21 Oct: /etc/kubernetes/admin.conf gave Permission denied).
+# So it is that user's own kubeconfig, the one kubectl uses.
+audit_kubeconfig: "{{ lookup('ansible.builtin.env', 'HOME') }}/.kube/config"
