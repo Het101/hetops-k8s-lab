@@ -3,7 +3,11 @@ kind: Application
 metadata:
   name: logging
   namespace: argocd
-  annotations: { argocd.argoproj.io/sync-wave: "0" }
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # This app applies server-side; Argo CD then compares with the CRDs' schemas, which do not know the API server's
+    # defaults, so the kibana HTTPRoute read OutOfSync (22 Oct). Server-side diff asks the API server instead.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: logging
   sources:
