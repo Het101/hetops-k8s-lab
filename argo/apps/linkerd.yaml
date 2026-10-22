@@ -19,7 +19,8 @@ spec:
     targetRevision: 2026.9.3
     helm:
       releaseName: linkerd-crds
-      valuesObject: { installGatewayAPI: true }   # the policy controller needs the Gateway API route CRDs
+      # The Gateway API CRDs are installed by argo/apps/gateway-api.yaml (v1.5.1), not by Linkerd (was v1.1.1).
+      valuesObject: { installGatewayAPI: false }
   - repoURL: https://helm.linkerd.io/edge
     chart: linkerd-control-plane
     targetRevision: 2026.9.3

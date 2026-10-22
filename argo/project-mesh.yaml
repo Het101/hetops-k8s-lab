@@ -9,6 +9,7 @@ spec:
   sourceRepos:
   - https://github.com/Het101/hetops-k8s-lab.git
   - https://helm.linkerd.io/edge
+  - https://github.com/kubernetes-sigs/gateway-api.git   # the Gateway API CRDs (argo/apps/gateway-api.yaml)
   destinations:
   - { server: https://kubernetes.default.svc, namespace: linkerd }
   - { server: https://kubernetes.default.svc, namespace: linkerd-cni }
@@ -19,3 +20,5 @@ spec:
   - { group: rbac.authorization.k8s.io, kind: ClusterRoleBinding }
   - { group: admissionregistration.k8s.io, kind: MutatingWebhookConfiguration }
   - { group: admissionregistration.k8s.io, kind: ValidatingWebhookConfiguration }
+  - { group: admissionregistration.k8s.io, kind: ValidatingAdmissionPolicy }          # Gateway API: refuses CRD downgrades
+  - { group: admissionregistration.k8s.io, kind: ValidatingAdmissionPolicyBinding }
