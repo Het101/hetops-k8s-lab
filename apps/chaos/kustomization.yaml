@@ -7,6 +7,7 @@ resources:
 - rbac-timeline.yaml
 - deployment.yaml
 - ingress.yaml
+- httproute.yaml
 - networkpolicies.yaml
 - selftest-cronjob.yaml
 images:
