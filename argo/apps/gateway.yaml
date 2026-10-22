@@ -1,5 +1,5 @@
-# NGINX Gateway Fabric, the Gateway API controller replacing the retired ingress-nginx (migration step 2), and the
-# lab's Gateway. It serves NodePort 30871 beside ingress-nginx's 30870 until the Cloudflare tunnel moves (step 5).
+# NGINX Gateway Fabric, the lab's Gateway API controller, and the lab's Gateway: the entry point for every visitor
+# since 22 Oct (it replaced the retired ingress-nginx). The tunnel calls lab-nginx.nginx-gateway by Service name.
 # Rehearsed first in CI (.github/workflows/gateway.yml). Design: docs/superpowers/specs/2026-10-22-gateway-migration-design.md
 apiVersion: argoproj.io/v1alpha1
 kind: Application

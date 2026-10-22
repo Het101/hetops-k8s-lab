@@ -1,4 +1,4 @@
-# The Gateway API twin of ingress.yaml. The longest matching prefix wins, as with the Ingress.
+# The clinic's routes (they replaced an ingress-nginx Ingress, 22 Oct). The longest matching prefix wins.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:

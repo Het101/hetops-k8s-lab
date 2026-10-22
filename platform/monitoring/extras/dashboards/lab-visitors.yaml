@@ -11,7 +11,7 @@ data:
     {
       "uid": "lab-visitors",
       "title": "Clinic lab — visitors",
-      "description": "What a visitor to lab.hetops.dev sees, measured at ingress-nginx.",
+      "description": "What a visitor to lab.hetops.dev sees, measured at the gateway (its Linkerd proxy).",
       "tags": [
         "chaos-lab"
       ],

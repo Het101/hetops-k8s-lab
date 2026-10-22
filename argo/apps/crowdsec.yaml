@@ -1,4 +1,4 @@
-# CrowdSec (SIEM track, T3): reads ingress-nginx access logs, recognises attack behaviour (scanners, brute force,
+# CrowdSec (SIEM track, T3): reads the gateway's nginx access logs, recognises attack behaviour (scanners, brute force,
 # bad user agents, known CVE probes) and makes ban decisions. T3 is detect-only; T4 adds a bouncer that enforces
 # the decisions at Cloudflare's edge, where the real visitor IP is.
 apiVersion: argoproj.io/v1alpha1
@@ -53,8 +53,7 @@ spec:
           acquisition:
           # Poll instead of inotify (T3): the kubelet rotates container logs by replacing the file behind the
           # /var/log/containers symlink; with inotify the agent logged "Waiting for ..." and read nothing for 11 h.
-          - { namespace: ingress-nginx, podName: ingress-nginx-controller-*, program: nginx, poll_without_inotify: true }
-          - { namespace: nginx-gateway, podName: lab-nginx-*, program: nginx, poll_without_inotify: true }   # NGINX Gateway Fabric
+          - { namespace: nginx-gateway, podName: lab-nginx-*, program: nginx, poll_without_inotify: true }   # NGINX Gateway Fabric (ingress-nginx until 22 Oct)
           env:
           - { name: COLLECTIONS, value: crowdsecurity/nginx }   # nginx parser + HTTP attack scenarios
           resources:

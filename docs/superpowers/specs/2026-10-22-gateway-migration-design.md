@@ -1,6 +1,6 @@
 # From ingress-nginx to the Gateway API
 
-**Status:** design, 22 Oct 2026. Awaiting the owner's choice of controller.
+**Status:** done, 22 Oct 2026. NGINX Gateway Fabric 2.7.2 serves every lab hostname since 08:38 UTC; ingress-nginx removed the same day (lab #99 to #111 and the removal PR). The full story, with what went wrong, is in the lab journal's Part 10 and Part 11.
 
 ## Why
 

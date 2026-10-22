@@ -82,11 +82,7 @@ grafana:
   admin:
     existingSecret: grafana-admin
   persistence: { enabled: false }        # dashboards come from git; nothing to keep
-  ingress:                               # reached through the Cloudflare tunnel, behind Access
-    enabled: true
-    ingressClassName: nginx
-    hosts: [grafana.hetops.dev]
-    path: /
+  ingress: { enabled: false }           # grafana.hetops.dev is an HTTPRoute (extras/grafana-httproute.yaml) since 22 Oct
   resources:                             # 384Mi was OOMKilled once 28 dashboards loaded (M6); Grafana 12 needs room
     requests: { cpu: 50m, memory: 256Mi }
     limits: { memory: 768Mi }

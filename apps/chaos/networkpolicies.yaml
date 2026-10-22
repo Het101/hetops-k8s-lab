@@ -23,8 +23,7 @@ spec:
   policyTypes: [Ingress, Egress]
   ingress:
   - from:
-    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
-    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # NGINX Gateway Fabric (the Gateway API migration)
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # NGINX Gateway Fabric: visitors, through the Cloudflare tunnel
     - podSelector: { matchLabels: { app: chaos-selftest } }   # the nightly self-test (separate items = OR)
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }   # Prometheus scraping /metrics
     ports: [{ protocol: TCP, port: 8080 }, { protocol: TCP, port: 4143 }]   # 4143: Linkerd proxy (mTLS)
@@ -33,9 +32,8 @@ spec:
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: clinic } }
       podSelector: { matchLabels: { app: api } }
     ports: [{ protocol: TCP, port: 8080 }, { protocol: TCP, port: 4143 }]
-  - to:                                  # ingress-nginx: the prober calls the lab the way a visitor does
-    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
-    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # and through NGF once the tunnel moves
+  - to:                                  # the gateway: the prober calls the lab the way a visitor does
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }
     ports: [{ protocol: TCP, port: 80 }, { protocol: TCP, port: 4143 }]
   - to:                                  # the Kubernetes API: Service IP and its real endpoint (kubectl -n default get endpoints kubernetes)
     - ipBlock: { cidr: 10.96.0.1/32 }
