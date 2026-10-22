@@ -5,6 +5,8 @@ resources:
 - sealed-alertmanager-telegram.yaml
 - sealed-alertmanager-timeline.yaml
 - ingress-nginx-metrics.yaml
+- nginx-gateway-metrics.yaml
+- grafana-httproute.yaml
 - servicemonitors.yaml
 - slo-rules.yaml
 - dashboards/lab-visitors.yaml

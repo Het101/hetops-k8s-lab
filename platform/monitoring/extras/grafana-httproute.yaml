@@ -1,0 +1,12 @@
+# The Gateway API twin of the chart's Ingress (grafana.ingress in values.yaml), owner-only behind Cloudflare Access.
+# Every field the API server would default is written out: this app applies server-side, and Argo CD compares with
+# the CRD's schema, which does not know those defaults (the kibana route read OutOfSync for that reason, 22 Oct).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: { name: grafana, namespace: monitoring }
+spec:
+  parentRefs: [{ group: gateway.networking.k8s.io, kind: Gateway, name: lab, namespace: nginx-gateway }]
+  hostnames: [grafana.hetops.dev]
+  rules:
+  - matches: [{ path: { type: PathPrefix, value: / } }]
+    backendRefs: [{ group: "", kind: Service, name: kps-grafana, port: 80, weight: 1 }]
