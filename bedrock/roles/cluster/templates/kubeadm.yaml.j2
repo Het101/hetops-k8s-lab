@@ -23,7 +23,9 @@ apiServer:
     - name: {{ volume.name }}
       hostPath: {{ volume.hostPath }}
       mountPath: {{ volume.mountPath }}
-      readOnly: {{ volume.readOnly | lower }}
+{% if volume.readOnly | default(false) %}
+      readOnly: true
+{% endif %}
       pathType: {{ volume.pathType }}
 {% endfor %}
 ---

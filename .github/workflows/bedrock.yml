@@ -115,8 +115,11 @@ jobs:
         run: |
           python3 -m venv ~/ansible && ~/ansible/bin/pip install -q ansible==14.5.0 kubernetes
           echo "$HOME/ansible/bin" >> "$GITHUB_PATH"
-      - name: Today's cluster
-        run: ansible-playbook site.yml > build.log || { tail -n 40 build.log; exit 1; }
+      - name: The cluster this upgrade starts from
+        run: |
+          ~/ansible/bin/python -c "import yaml,json; print(json.dumps(yaml.safe_load(open('$UPGRADE'))['upgrade_from_vars']))" > before.json
+          ansible-playbook site.yml -e @before.json > build.log || { tail -n 40 build.log; exit 1; }
+          kubectl version -o json | jq -r .serverVersion.gitVersion
       - name: Upgrade Calico
         run: ansible-playbook upgrade.yml -e "@$UPGRADE" --tags calico
       # The live server's state after the failed apply of 22 Oct: kubeadm already at the target, the cluster
