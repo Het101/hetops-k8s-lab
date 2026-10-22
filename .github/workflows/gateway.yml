@@ -37,6 +37,8 @@ jobs:
             -n nginx-gateway --create-namespace -f platform/gateway/values.yaml --wait --timeout 5m
           kubectl apply -f platform/gateway/gateway.yaml
           kubectl -n nginx-gateway wait --for=condition=Programmed gateway/lab --timeout=180s
+          # Programmed comes before the data plane's pod is up (first run: every request refused, pod 0/1).
+          kubectl -n nginx-gateway rollout status deploy/lab-nginx --timeout=180s
           kubectl -n nginx-gateway get deploy,svc
       # Each Service the routes name, answered by a stand-in that prints its own name.
       - name: Stand-in backends, then the lab's routes
