@@ -1,10 +1,15 @@
 # The Gateway API twin of ingress.yaml (owner-only behind Cloudflare Access, like the Ingress).
+# This app syncs with ServerSideApply, which keeps no last-applied record, so Argo CD's default diff reads every
+# field the API server fills in (weight 1, kind Service, the parentRef's group) as drift. Diff it server-side.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
-metadata: { name: kibana, namespace: logging }
+metadata:
+  name: kibana
+  namespace: logging
+  annotations: { argocd.argoproj.io/compare-options: ServerSideDiff=true }
 spec:
   parentRefs: [{ name: lab, namespace: nginx-gateway }]
   hostnames: [kibana.hetops.dev]
   rules:
-  - matches: [{ path: { type: PathPrefix, value: / } }]   # the API server's default, written out: left implicit, Argo CD saw drift
+  - matches: [{ path: { type: PathPrefix, value: / } }]
     backendRefs: [{ name: lab-kibana-kb-http, port: 5601 }]
