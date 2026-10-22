@@ -34,6 +34,7 @@ spec:
   ingress:
   - from:
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }   # visitors (public door) and the owner
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # NGINX Gateway Fabric (the Gateway API migration)
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }      # Prometheus scrapes; Alertmanager (part 4b)
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: chaos } }           # chaos-api events (plan T5)
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: falco } }           # falcosidekick detections (4c; not meshed, plain 8080)

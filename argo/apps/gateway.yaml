@@ -1,0 +1,42 @@
+# NGINX Gateway Fabric, the Gateway API controller replacing the retired ingress-nginx (migration step 2), and the
+# lab's Gateway. It serves NodePort 30871 beside ingress-nginx's 30870 until the Cloudflare tunnel moves (step 5).
+# Rehearsed first in CI (.github/workflows/gateway.yml). Design: docs/superpowers/specs/2026-10-22-gateway-migration-design.md
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "0" }   # after gateway-api (-1): the Gateway API CRDs come first
+spec:
+  project: mesh
+  sources:
+  - repoURL: ghcr.io/nginx/charts                      # an OCI registry: no scheme, the chart named below
+    chart: nginx-gateway-fabric
+    targetRevision: 2.7.2                              # pinned; upgrades are a reviewed one-line PR
+    helm:
+      releaseName: ngf
+      valueFiles: [$values/platform/gateway/values.yaml]
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    ref: values                                        # lets the chart above read our values file from git
+  - repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: platform/gateway
+    directory: { include: gateway.yaml }               # the Gateway; values.yaml beside it is not an object
+  destination: { server: https://kubernetes.default.svc, namespace: nginx-gateway }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    # The namespace is meshed before any pod starts (the injector fails closed here). Port 80 skips the proxy, as
+    # on ingress-nginx: through the proxy nginx would see every visitor as 127.0.0.1, and the real-IP rule (trust
+    # X-Forwarded-For only from 192.168.0.0/16) would log the proxy instead of the visitor.
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        hetops.dev/mesh: required
+        pod-security.kubernetes.io/enforce: baseline
+        pod-security.kubernetes.io/warn: restricted
+      annotations:
+        linkerd.io/inject: enabled
+        config.linkerd.io/skip-inbound-ports: "80"
+    retry: { limit: 5, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }

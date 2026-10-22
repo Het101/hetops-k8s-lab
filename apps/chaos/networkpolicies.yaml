@@ -24,6 +24,7 @@ spec:
   ingress:
   - from:
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # NGINX Gateway Fabric (the Gateway API migration)
     - podSelector: { matchLabels: { app: chaos-selftest } }   # the nightly self-test (separate items = OR)
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }   # Prometheus scraping /metrics
     ports: [{ protocol: TCP, port: 8080 }, { protocol: TCP, port: 4143 }]   # 4143: Linkerd proxy (mTLS)
