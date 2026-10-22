@@ -29,7 +29,7 @@ spec:
         customRules:
           lab-tuning.yaml: |-
             - rule: Contact K8S API Server From Container
-              condition: and not k8s.ns.name in (chaos, timeline, argocd, monitoring, logging, falco, kube-system, ingress-nginx, linkerd, linkerd-cni)
+              condition: and not k8s.ns.name in (chaos, timeline, argocd, monitoring, logging, falco, kube-system, ingress-nginx, nginx-gateway, linkerd, linkerd-cni)
               override:
                 condition: append
         resources:
