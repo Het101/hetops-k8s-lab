@@ -5,6 +5,7 @@ metadata:
   annotations:
     linkerd.io/inject: enabled      # mTLS track: every new pod here gets a Linkerd proxy
   labels:
+    hetops.dev/mesh: required       # the Linkerd injector serves only these namespaces, and fails closed for them
     app.kubernetes.io/part-of: chaos-lab
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
@@ -16,6 +17,7 @@ metadata:
   annotations:
     linkerd.io/inject: enabled      # mTLS track: every new pod here gets a Linkerd proxy
   labels:
+    hetops.dev/mesh: required       # the Linkerd injector serves only these namespaces, and fails closed for them
     app.kubernetes.io/part-of: chaos-lab
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
@@ -29,7 +31,6 @@ metadata:
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: restricted
 ---
----
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -37,6 +38,18 @@ metadata:
   annotations:
     linkerd.io/inject: enabled      # mTLS: the timeline is meshed like every lab service
   labels:
+    hetops.dev/mesh: required       # the Linkerd injector serves only these namespaces, and fails closed for them
     app.kubernetes.io/part-of: chaos-lab
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
+---
+# The ingress controller was installed by hand (Helm), outside Argo CD; only its namespace is here, so the mesh
+# label lives in git. Its existing labels are kept as they are.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    hetops.dev/mesh: required       # the Linkerd injector serves only these namespaces, and fails closed for them
