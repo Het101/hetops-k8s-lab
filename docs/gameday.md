@@ -87,10 +87,7 @@ Argo CD itself was installed by hand (Part 1), so these settings exist only on t
   kubectl -n argocd rollout restart statefulset argocd-application-controller
   ```
 - **Reconciliation every 60 s** (L7): `timeout.reconciliation: 60s` in `argocd-cm`.
-- **ingress-nginx request metrics** (monitoring M3, 9 Oct): v1.12.1 was installed without `--enable-metrics`, and exported only Go/process metrics. Prometheus showed the target UP with no request data. Fix:
-  ```bash
-  kubectl -n ingress-nginx patch deploy ingress-nginx-controller --type=json -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--enable-metrics=true"}]'
-  ```
+- **Gateway request metrics:** open-source NGINX Gateway Fabric counts requests but has no status code or path. The visitors dashboard reads the gateway's Linkerd proxy instead (`response_total`, `response_latency_ms_bucket` by `dst_deployment`), scraped by `platform/monitoring/extras/nginx-gateway-metrics.yaml`. (ingress-nginx, retired 22 Oct, needed `--enable-metrics` patched in by hand.)
 - **Node inotify limit:** `fs.inotify.max_user_instances = 512` in `/etc/sysctl.d/99-inotify.conf`. The default of 128 ran out with Kubernetes and Coolify on one VM (`kubectl logs -f` failed with "too many open files").
 
 ## Error budget freeze (sub-project 3)
@@ -144,27 +141,19 @@ Filebeat ships `/var/log/kubernetes/audit/audit.log` to Elasticsearch under `k8s
 - Tuning lives in `argo/apps/falco.yaml` (`customRules`). Exempt by the narrowest field that explains *why* a caller is legitimate; never disable a rule wholesale.
 - **Manual Argo CD sync with kubectl:** a patched `operation` uses only the options inside it, not the app's `syncOptions`. Pass them: `kubectl -n argocd patch app falco --type merge -p '{"operation":{"initiatedBy":{"username":"owner"},"sync":{"revision":"9.2.0","syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}}'`
 
-## Real visitor IPs in ingress-nginx (SIEM track, T3)
+## Real visitor IPs at the gateway (SIEM track, T3)
 
-All public traffic arrives through cloudflared, so nginx saw the tunnel pod's IP. Trust Cloudflare's `CF-Connecting-IP` header, but **only from the pod network** (where cloudflared runs); anything else claiming that header is ignored, so it cannot be spoofed from outside:
+All public traffic arrives through cloudflared, so nginx would see the tunnel pod's IP. NGINX Gateway Fabric takes the visitor's address from `X-Forwarded-For`, trusting it **only from the pod network** (where cloudflared runs) and recursively, so an address a visitor adds themselves is ignored: `rewriteClientIP` in `platform/gateway/values.yaml`, in git. The CI rehearsal (`.github/workflows/gateway.yml`) proves it on every change. Check live: `kubectl -n nginx-gateway logs deploy/lab-nginx -c nginx --tail=5` shows public addresses, not 192.168.x.
 
-```bash
-kubectl -n ingress-nginx patch configmap ingress-nginx-controller --type merge -p '{"data":{"use-forwarded-headers":"true","forwarded-for-header":"CF-Connecting-IP","proxy-real-ip-cidr":"192.168.0.0/16"}}'
-```
-
-Set outside git (ingress-nginx was installed by hand). Re-apply after any reinstall.
+Every NodePort, the gateway's 30871 included, is filtered at the network edge: the gateway is reachable only through the tunnel, which is what makes chaos-api's trust in `CF-Connecting-IP` safe.
 
 ## Linkerd service mesh (mTLS track)
 
-clinic, clinic-data, chaos and ingress-nginx are meshed: every hop between them is mTLS, and postgres accepts only the `api`, `worker`, `nightly-report` and `migrate` identities (`apps/clinic-data/mesh-policy.yaml`).
+clinic, clinic-data, chaos, timeline and nginx-gateway are meshed: every hop between them is mTLS, and postgres accepts only the `api`, `worker`, `nightly-report` and `migrate` identities (`apps/clinic-data/mesh-policy.yaml`).
 
 - **Health:** `linkerd check` and `linkerd check --proxy -n clinic`. CLI: `curl --proto '=https' -sSfL https://run.linkerd.io/install-edge | LINKERD2_VERSION=edge-26.9.3 sh` (keep it on the control plane's version).
 - **Who talks to postgres:** `linkerd diagnostics proxy-metrics -n clinic-data sts/postgres | grep -oE 'client_id="[^"]+"' | sort | uniq -c`. Refusals: `kubectl -n clinic-data logs postgres-0 -c linkerd-proxy | grep "Connection denied"`.
-- **ingress-nginx is meshed by hand** (installed outside git). Re-apply after any reinstall:
-  ```bash
-  kubectl -n ingress-nginx patch deploy ingress-nginx-controller --type merge -p '{"spec":{"template":{"metadata":{"annotations":{"linkerd.io/inject":"enabled","config.linkerd.io/skip-inbound-ports":"80,443,8443"}}}}}'
-  ```
-  Inbound 80/443 (visitors) and 8443 (admission webhook) skip the proxy, so real client IPs and CrowdSec are unchanged; nginx's calls to the apps go through it.
+- **The gateway is meshed by its namespace** (`managedNamespaceMetadata` in `argo/apps/gateway.yaml`): inbound port 80 skips the proxy, so nginx sees the visitor's address; nginx's calls to the apps go through it (mTLS).
 - **New namespace or workload in the mesh:** its NetworkPolicies must allow DNS, egress to namespace `linkerd`, and port **4143** wherever the app port is allowed (meshed clients connect to the server's proxy port). A namespace with default-deny and no DNS rule leaves the proxy unable to start (`Init:1/2` loop).
 - **PreSync hooks:** a hook runs before the sync phase. A hook that needs something new (a NetworkPolicy, a ServiceAccount) deadlocks the first sync. Ship the dependency in an earlier change.
 - **Postgres probes are exec, not TCP:** a kubelet TCP probe has no mesh identity and the postgres Server refuses it.

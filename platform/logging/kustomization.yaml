@@ -4,5 +4,4 @@ resources:
 - elasticsearch.yaml
 - kibana.yaml
 - filebeat.yaml
-- ingress.yaml
 - httproute.yaml

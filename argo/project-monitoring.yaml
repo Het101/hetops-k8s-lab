@@ -12,6 +12,5 @@ spec:
   destinations:
   - { server: https://kubernetes.default.svc, namespace: monitoring }
   - { server: https://kubernetes.default.svc, namespace: kube-system }     # the chart's CoreDNS / kubelet scrape Services
-  - { server: https://kubernetes.default.svc, namespace: ingress-nginx }   # the controller's metrics Service (M3)
   clusterResourceWhitelist:
   - { group: '*', kind: '*' }

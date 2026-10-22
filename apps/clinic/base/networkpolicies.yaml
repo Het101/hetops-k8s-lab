@@ -33,8 +33,7 @@ spec:
   policyTypes: [Ingress]
   ingress:
   - from:
-    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
-    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # NGINX Gateway Fabric (the Gateway API migration)
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # NGINX Gateway Fabric: visitors, through the Cloudflare tunnel
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: chaos } }   # separate items = OR
     ports:
     - { protocol: TCP, port: 8080 }
@@ -50,8 +49,7 @@ spec:
   policyTypes: [Ingress]
   ingress:
   - from:
-    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
-    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # NGINX Gateway Fabric (the Gateway API migration)
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nginx-gateway } }   # NGINX Gateway Fabric: visitors, through the Cloudflare tunnel
     ports:
     - { protocol: TCP, port: 8080 }
     - { protocol: TCP, port: 4143 }   # mTLS: a meshed client connects to the Linkerd proxy's inbound port

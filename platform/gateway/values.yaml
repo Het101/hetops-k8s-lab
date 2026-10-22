@@ -5,7 +5,8 @@ nginxGateway:
 nginx:
   service:
     type: NodePort
-    # The Cloudflare tunnel's new target. ingress-nginx keeps 30870 until the switch (step 5).
+    # For scripts on the server (scripts/gameday.sh) and the CI rehearsal; the tunnel uses the Service name.
+    # Filtered at the network edge, like every NodePort here: the gateway is reachable only through the tunnel.
     nodePorts:
     - port: 30871
       listenerPort: 80

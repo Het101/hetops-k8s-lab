@@ -1,4 +1,4 @@
-# The Gateway API twin of ingress.yaml. The streams beat every 20 s and send X-Accel-Buffering: no, so nginx's
+# Timeline routes (they replaced an ingress-nginx Ingress, 22 Oct). The streams beat every 20 s and send X-Accel-Buffering: no, so nginx's
 # defaults suit them. /ingest is still never routed (lab.hetops.dev/ingest lands on the clinic's web page).
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

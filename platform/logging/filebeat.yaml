@@ -47,7 +47,6 @@ spec:
           - equals: { kubernetes.namespace: clinic }
           - equals: { kubernetes.namespace: clinic-data }
           - equals: { kubernetes.namespace: chaos }
-          - equals: { kubernetes.namespace: ingress-nginx }
           - equals: { kubernetes.namespace: nginx-gateway }
           - equals: { kubernetes.namespace: timeline }      # missing until 22 Oct (found while writing the field guide)
           - equals: { kubernetes.namespace: falco }

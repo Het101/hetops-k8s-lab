@@ -1,4 +1,4 @@
-# The Gateway API twin of the chart's Ingress (grafana.ingress in values.yaml), owner-only behind Cloudflare Access.
+# grafana.hetops.dev, owner-only behind Cloudflare Access (it replaced the chart's ingress-nginx Ingress, 22 Oct).
 # Every field the API server would default is written out: this app applies server-side, and Argo CD compares with
 # the CRD's schema, which does not know those defaults (the kibana route read OutOfSync for that reason, 22 Oct).
 apiVersion: gateway.networking.k8s.io/v1
