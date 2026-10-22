@@ -66,7 +66,9 @@ spec:
   - { group: admissionregistration.k8s.io, kind: ValidatingWebhookConfiguration, jqPathExpressions: [".webhooks[].clientConfig.caBundle"] }
   - { group: apps, kind: Deployment, jsonPointers: [/spec/template/metadata/annotations/checksum~1config] }
   syncPolicy:
-    automated: { prune: true, selfHeal: true }
+    # TEMPORARY (22 Oct, Gateway API CRD hand-over): no pruning while the Gateway API CRDs move from linkerd-crds
+    # to argo/apps/gateway-api.yaml, so dropping them from this app can never delete them. Back to true after.
+    automated: { prune: false, selfHeal: true }
     syncOptions: [CreateNamespace=true, ServerSideApply=true, RespectIgnoreDifferences=true]
     managedNamespaceMetadata:
       labels:
