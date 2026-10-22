@@ -1,0 +1,19 @@
+# The lab's one entry point. Routes live beside the Services they point at (apps/*/httproute.yaml), and only
+# the namespaces listed here may attach one.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: lab
+  namespace: nginx-gateway
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - name: http                 # TLS ends at Cloudflare; the tunnel speaks plain HTTP to the node
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - { key: kubernetes.io/metadata.name, operator: In, values: [chaos, clinic, timeline, logging] }

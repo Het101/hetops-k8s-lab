@@ -1,0 +1,103 @@
+# The Gateway API migration (docs/superpowers/specs/2026-10-22-gateway-migration-design.md), rehearsed before
+# it reaches the lab: Bedrock builds a throwaway cluster like the lab server, then NGINX Gateway Fabric, the
+# Gateway and the lab's real HTTPRoutes go on it, with stand-in backends, and every path is tested.
+# The routes join their apps' kustomizations only once the Gateway is live: Argo CD 3.5 grades a route with no
+# Gateway status Progressing, which would hold clinic, chaos, timeline and logging at Progressing.
+name: gateway
+on:
+  pull_request:
+    paths: ["platform/gateway/**", "apps/*/httproute.yaml", "apps/*/*/httproute.yaml", "platform/logging/httproute.yaml", ".github/workflows/gateway.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  GATEWAY_API: v1.5.1          # argo/apps/gateway-api.yaml
+  NGF: 2.7.2
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04-arm          # the lab server is arm64
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: A cluster like the lab server (Bedrock)
+        working-directory: bedrock
+        run: |
+          python3 -m venv ~/ansible && ~/ansible/bin/pip install -q ansible==14.5.0 kubernetes
+          export PATH="$HOME/ansible/bin:$PATH"
+          ansible-playbook site.yml > build.log || { tail -n 40 build.log; exit 1; }
+          kubectl get nodes
+      - name: Gateway API CRDs, the lab's channel and version
+        run: |
+          kubectl apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API/experimental-install.yaml"
+          kubectl wait --for=condition=Established crd --all --timeout=60s
+      - name: NGINX Gateway Fabric, with the lab's values
+        run: |
+          command -v helm || curl -fsSL https://get.helm.sh/helm-v3.19.0-linux-arm64.tar.gz | sudo tar -xz -C /usr/local/bin --strip-components=1 linux-arm64/helm
+          helm install ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric --version "$NGF" \
+            -n nginx-gateway --create-namespace -f platform/gateway/values.yaml --wait --timeout 5m
+          kubectl apply -f platform/gateway/gateway.yaml
+          kubectl -n nginx-gateway wait --for=condition=Programmed gateway/lab --timeout=180s
+          # Programmed comes before the data plane's pod is up (first run: every request refused, pod 0/1).
+          kubectl -n nginx-gateway rollout status deploy/lab-nginx --timeout=180s
+          kubectl -n nginx-gateway get deploy,svc
+      # Each Service the routes name, answered by a stand-in that prints its own name.
+      - name: Stand-in backends, then the lab's routes
+        run: |
+          while read -r ns svc ports; do
+            kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+            kubectl -n "$ns" create deployment "$svc" --image=hashicorp/http-echo:1.0.0 -- /http-echo "-text=$svc"
+            kubectl -n "$ns" create service clusterip "$svc" $(for p in $ports; do echo "--tcp=$p:5678"; done)
+          done <<'LIST'
+          chaos chaos-api 80
+          clinic api 80
+          clinic web 80
+          timeline timeline 8080 8081
+          logging lab-kibana-kb-http 5601
+          LIST
+          kubectl wait --for=condition=Available deploy -A -l app --timeout=180s 2>/dev/null || kubectl get pods -A | grep -v Running
+          kubectl apply -f apps/chaos/httproute.yaml -f apps/clinic/base/httproute.yaml \
+            -f apps/timeline/httproute.yaml -f platform/logging/httproute.yaml
+          for r in chaos/chaos clinic/clinic timeline/timeline logging/kibana; do
+            kubectl -n "${r%/*}" wait --for=jsonpath='{.status.parents[0].conditions[?(@.type=="Accepted")].status}'=True \
+              "httproute/${r#*/}" --timeout=60s
+          done
+      - name: Every path reaches the Service its Ingress sends it to
+        run: |
+          fail=0
+          while read -r host path want; do
+            got=$(curl -s --max-time 5 -o /dev/stdout -w ' %{http_code}' -H "Host: $host" "http://127.0.0.1:30871$path" | tr -d '\n')
+            case "$got" in "$want"*|*" $want") echo "ok   $host$path -> $got" ;; *) echo "FAIL $host$path -> $got (want $want)"; fail=1 ;; esac
+          done <<'LIST'
+          lab.hetops.dev /chaos/status chaos-api
+          lab.hetops.dev /api/whoami api
+          lab.hetops.dev / web
+          lab.hetops.dev /bookings web
+          lab.hetops.dev /timeline timeline
+          lab.hetops.dev /timeline/stream timeline
+          lab.hetops.dev /owner/timeline timeline
+          lab.hetops.dev /ingest web
+          kibana.hetops.dev / lab-kibana-kb-http
+          example.com / 404
+          LIST
+          exit $fail
+      # Cloudflared reaches the NodePort from a pod; the visitor's address arrives in X-Forwarded-For. nginx must
+      # log the visitor, and must ignore an address the visitor added themselves.
+      - name: The visitor's address, not the tunnel's
+        run: |
+          node=$(kubectl get node -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+          kubectl run xff --image=curlimages/curl:8.17.0 --restart=Never --command -- sh -c \
+            "curl -s -o /dev/null -H 'Host: lab.hetops.dev' -H 'X-Forwarded-For: 198.51.100.9, 203.0.113.7' http://$node:30871/real-ip-check"
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/xff --timeout=120s
+          sleep 2
+          line=$(kubectl -n nginx-gateway logs deploy/lab-nginx -c nginx --tail=50 | grep real-ip-check | tail -n 1)
+          echo "$line"
+          case "$line" in 203.0.113.7\ *) echo "ok: logged as the visitor" ;; *) echo "FAIL: want 203.0.113.7 first"; exit 1 ;; esac
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Gateway rehearsal: NGINX Gateway Fabric $NGF, Gateway API $GATEWAY_API"
+            kubectl get gateway,httproute -A 2>/dev/null | sed 's/^/    /'
+          } >> "$GITHUB_STEP_SUMMARY"

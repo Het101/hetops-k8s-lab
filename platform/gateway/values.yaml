@@ -1,0 +1,21 @@
+# NGINX Gateway Fabric, the Gateway API controller replacing the retired ingress-nginx
+# (docs/superpowers/specs/2026-10-22-gateway-migration-design.md). Chart oci://ghcr.io/nginx/charts/nginx-gateway-fabric 2.7.2.
+nginxGateway:
+  gatewayClassName: nginx
+nginx:
+  service:
+    type: NodePort
+    # The Cloudflare tunnel's new target. ingress-nginx keeps 30870 until the switch (step 5).
+    nodePorts:
+    - port: 30871
+      listenerPort: 80
+  config:
+    # The visitor's address, as ingress-nginx's proxy-real-ip-cidr gave it: trust X-Forwarded-For only from the
+    # pod network (cloudflared, and the node's tunl0 address, are both in it), and take the right-most address
+    # not in it, so a visitor cannot spoof it by sending their own X-Forwarded-For.
+    rewriteClientIP:
+      mode: XForwardedFor
+      setIPRecursively: true
+      trustedAddresses:
+      - type: CIDR
+        value: 192.168.0.0/16

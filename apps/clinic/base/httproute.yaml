@@ -1,0 +1,14 @@
+# The Gateway API twin of ingress.yaml. The longest matching prefix wins, as with the Ingress.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: clinic
+  namespace: clinic
+spec:
+  parentRefs: [{ name: lab, namespace: nginx-gateway }]
+  hostnames: [lab.hetops.dev]
+  rules:
+  - matches: [{ path: { type: PathPrefix, value: /api } }]
+    backendRefs: [{ name: api, port: 80 }]
+  - matches: [{ path: { type: PathPrefix, value: / } }]
+    backendRefs: [{ name: web, port: 80 }]
