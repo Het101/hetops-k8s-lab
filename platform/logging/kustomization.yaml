@@ -5,3 +5,4 @@ resources:
 - kibana.yaml
 - filebeat.yaml
 - ingress.yaml
+- httproute.yaml
