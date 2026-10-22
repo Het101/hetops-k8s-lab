@@ -216,6 +216,31 @@
           delay: 5
           changed_when: false
 
+        # 22 Oct: Argo CD kept the old cluster version (1.31.14) for five hours after the upgrade. Its cached version
+        # refreshes only on a 24 h resync, so every Helm chart rendered for 1.31, and a chart needing 1.32 (NGINX
+        # Gateway Fabric) refused to render. A controller restart reads the new version. Clusters without Argo CD
+        # (CI's) skip it.
+        - name: Find Argo CD's application controller
+          ansible.builtin.command: kubectl -n argocd get statefulset argocd-application-controller -o name
+          register: upgrade_argocd_controller
+          changed_when: false
+          failed_when: false
+          when: upgrade_from != upgrade_to
+
+        - name: Argo CD reads the new cluster version
+          ansible.builtin.command: kubectl -n argocd rollout restart statefulset/argocd-application-controller
+          changed_when: true
+          when:
+            - upgrade_from != upgrade_to
+            - upgrade_argocd_controller.rc | default(1) == 0
+
+        - name: Argo CD's controller is back
+          ansible.builtin.command: kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=180s
+          changed_when: false
+          when:
+            - upgrade_from != upgrade_to
+            - upgrade_argocd_controller.rc | default(1) == 0
+
         - name: The API server still has every audit flag (kubeadm regenerated its manifest)
           ansible.builtin.include_role:
             name: audit
