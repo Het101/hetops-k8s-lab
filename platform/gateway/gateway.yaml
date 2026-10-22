@@ -16,4 +16,4 @@ spec:
         from: Selector
         selector:
           matchExpressions:
-          - { key: kubernetes.io/metadata.name, operator: In, values: [chaos, clinic, timeline, logging] }
+          - { key: kubernetes.io/metadata.name, operator: In, values: [chaos, clinic, timeline, logging, monitoring] }

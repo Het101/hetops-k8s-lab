@@ -1,0 +1,29 @@
+# NGINX Gateway Fabric's metrics (the Gateway API migration, step 4). Open-source NGF counts requests and connections
+# but has no status code or path, which the visitors dashboard needs. The gateway's own Linkerd proxy does: every
+# request nginx forwards, with its status and latency, labelled by the backend (dst_namespace, dst_deployment).
+# Only those two outbound series are kept; the proxy exposes hundreds of others.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata: { name: nginx-gateway, namespace: monitoring }
+spec:
+  namespaceSelector: { matchNames: [nginx-gateway] }
+  selector: { matchLabels: { gateway.networking.k8s.io/gateway-name: lab } }
+  podMetricsEndpoints:
+  - port: metrics                  # nginx: request and connection counts
+    interval: 30s
+  - port: linkerd-admin            # the gateway's Linkerd proxy
+    path: /metrics
+    interval: 30s
+    metricRelabelings:
+    - sourceLabels: [__name__, direction]
+      regex: (response_total|response_latency_ms_bucket);outbound
+      action: keep
+---
+# The controller: config reloads, event processing, its own health.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: nginx-gateway-fabric, namespace: monitoring }
+spec:
+  namespaceSelector: { matchNames: [nginx-gateway] }
+  selector: { matchLabels: { app.kubernetes.io/name: nginx-gateway-fabric } }
+  endpoints: [{ port: metrics, interval: 30s }]
