@@ -31,6 +31,20 @@ spec:
         identity:
           issuer: { scheme: kubernetes.io/tls }  # read the issuer from the sealed Secret, not from values
         disableHeartBeat: true                 # no daily phone-home CronJob
+        # Fail closed, but only where the mesh is required (22 Oct). After the 21 Oct reboot five pods (the
+        # worker, chaos-api, timeline, the ingress controller) started before this injector was ready; with the
+        # default Ignore they were created WITHOUT a proxy: the worker was refused by Postgres (mesh identities
+        # only) and the first hop from the ingress went unencrypted. Now the injector only serves namespaces
+        # labelled hetops.dev/mesh=required (platform/namespaces.yaml, argo/apps/clinic.yaml), and a pod there
+        # is refused until the injector answers; its controller retries. Everything else (Argo CD, monitoring,
+        # logging) never calls this webhook, so a Linkerd outage cannot block them. The same global value also
+        # makes Linkerd's two validating webhooks fail closed; their resources only come from git via Argo CD.
+        webhookFailurePolicy: Fail
+        proxyInjector:
+          namespaceSelector:
+            matchExpressions:
+            - { key: hetops.dev/mesh, operator: In, values: [required] }
+            - { key: config.linkerd.io/admission-webhooks, operator: NotIn, values: [disabled] }
         proxy:
           resources:                           # defaults; namespaces can override with config.linkerd.io/* annotations
             cpu: { request: 10m, limit: 100m }
