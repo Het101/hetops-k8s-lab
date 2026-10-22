@@ -6,4 +6,5 @@ spec:
   parentRefs: [{ name: lab, namespace: nginx-gateway }]
   hostnames: [kibana.hetops.dev]
   rules:
-  - backendRefs: [{ name: lab-kibana-kb-http, port: 5601 }]
+  - matches: [{ path: { type: PathPrefix, value: / } }]   # the API server's default, written out: left implicit, Argo CD saw drift
+    backendRefs: [{ name: lab-kibana-kb-http, port: 5601 }]
