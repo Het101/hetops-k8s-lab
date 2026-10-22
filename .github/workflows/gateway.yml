@@ -1,6 +1,8 @@
 # The Gateway API migration (docs/superpowers/specs/2026-10-22-gateway-migration-design.md), rehearsed before
 # it reaches the lab: Bedrock builds a throwaway cluster like the lab server, then NGINX Gateway Fabric, the
 # Gateway and the lab's real HTTPRoutes go on it, with stand-in backends, and every path is tested.
+# The routes join their apps' kustomizations only once the Gateway is live: Argo CD 3.5 grades a route with no
+# Gateway status Progressing, which would hold clinic, chaos, timeline and logging at Progressing.
 name: gateway
 on:
   pull_request:

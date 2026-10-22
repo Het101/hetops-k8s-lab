@@ -12,7 +12,6 @@ resources:
 - report-cronjob.yaml
 - web.yaml
 - ingress.yaml
-- httproute.yaml
 - networkpolicies.yaml
 - rbac-viewer.yaml
 - rbac-chaos.yaml
