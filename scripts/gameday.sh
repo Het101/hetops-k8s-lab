@@ -4,9 +4,9 @@
 #   scripts/gameday.sh kill-pod
 # Talks to chaos-api through the ingress on this server, so Cloudflare (and its rate limit) is not in the way.
 set -euo pipefail
-id=${1:?usage: scripts/gameday.sh <action-id>   (ids: curl -s -H "Host: lab.hetops.dev" localhost:30870/chaos/actions)}
+id=${1:?usage: scripts/gameday.sh <action-id>   (ids: curl -s -H "Host: lab.hetops.dev" localhost:30871/chaos/actions)}
 : "${CHAOS_BYPASS:?set your token first: read -rs -p 'BYPASS_TOKEN: ' CHAOS_BYPASS; echo; export CHAOS_BYPASS}"
-url=http://localhost:30870/chaos
+url=http://localhost:30871/chaos
 get() { curl -s -H 'Host: lab.hetops.dev' "$url/$1"; }
 
 # Record the prober's real requests (5 a second) for the whole experiment: did users notice?
