@@ -1,0 +1,14 @@
+# The Gateway API twin of ingress.yaml (the migration runs both until the switch). No timeout or buffering
+# settings needed: the stream sends a ping every 15 s (under nginx's 60 s read timeout) and says
+# X-Accel-Buffering: no itself.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: chaos
+  namespace: chaos
+spec:
+  parentRefs: [{ name: lab, namespace: nginx-gateway }]
+  hostnames: [lab.hetops.dev]
+  rules:
+  - matches: [{ path: { type: PathPrefix, value: /chaos } }]
+    backendRefs: [{ name: chaos-api, port: 80 }]
