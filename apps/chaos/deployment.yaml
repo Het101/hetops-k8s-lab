@@ -15,6 +15,9 @@ spec:
         image: ghcr.io/het101/chaos-api
         ports: [{ name: http, containerPort: 8080 }]
         envFrom: [{ secretRef: { name: chaos-secrets } }]
+        env:                           # the prober calls the lab the way a visitor does: through the gateway visitors use
+        - { name: PROBE_URL, value: http://lab-nginx.nginx-gateway.svc.cluster.local/api/whoami }
+        - { name: WEB_URL, value: http://lab-nginx.nginx-gateway.svc.cluster.local/ }
         readinessProbe: { httpGet: { path: /chaos/health, port: http }, periodSeconds: 5 }
         livenessProbe: { httpGet: { path: /chaos/health, port: http }, periodSeconds: 10, failureThreshold: 3 }
         resources:

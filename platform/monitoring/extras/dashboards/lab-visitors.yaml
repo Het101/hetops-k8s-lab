@@ -48,7 +48,7 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "(sum(rate(nginx_ingress_controller_requests{host=\"lab.hetops.dev\",path=\"/api\",status=~\"5..|499\"}[5m])) or sum(rate(nginx_ingress_controller_requests{host=\"lab.hetops.dev\",path=\"/api\"}[5m])) * 0) / sum(rate(nginx_ingress_controller_requests{host=\"lab.hetops.dev\",path=\"/api\"}[5m]))",
+              "expr": "(sum(rate(response_total{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\",dst_deployment=\"api\",classification=\"failure\"}[5m])) or sum(rate(response_total{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\",dst_deployment=\"api\"}[5m])) * 0) / sum(rate(response_total{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\",dst_deployment=\"api\"}[5m]))",
               "legendFormat": "__auto",
               "range": true,
               "instant": false,
@@ -121,7 +121,7 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "histogram_quantile(0.95, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket{host=\"lab.hetops.dev\",path=\"/api\"}[5m])))",
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(response_latency_ms_bucket{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\",dst_deployment=\"api\"}[5m]))) / 1000",
               "legendFormat": "__auto",
               "range": true,
               "instant": false,
@@ -244,7 +244,7 @@ data:
         },
         {
           "type": "timeseries",
-          "title": "Requests per second by route",
+          "title": "Requests per second by service",
           "description": "",
           "datasource": {
             "type": "prometheus",
@@ -257,8 +257,8 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "sum by (path) (rate(nginx_ingress_controller_requests{host=\"lab.hetops.dev\"}[2m]))",
-              "legendFormat": "{{path}}",
+              "expr": "sum by (dst_deployment) (rate(response_total{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\"}[2m]))",
+              "legendFormat": "{{dst_deployment}}",
               "range": true,
               "instant": false,
               "format": "time_series"
@@ -305,7 +305,7 @@ data:
         },
         {
           "type": "timeseries",
-          "title": "Bad requests by route (5xx or client gave up)",
+          "title": "Bad requests by service (5xx or failed)",
           "description": "A request is bad if the server answered 5xx or the client gave up waiting (499). 499s matter: when postgres dies most failures show as 499, not 5xx.",
           "datasource": {
             "type": "prometheus",
@@ -318,8 +318,8 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "(sum by (path) (rate(nginx_ingress_controller_requests{host=\"lab.hetops.dev\",status=~\"5..|499\"}[2m])) or sum by (path) (rate(nginx_ingress_controller_requests{host=\"lab.hetops.dev\"}[2m])) * 0) / sum by (path) (rate(nginx_ingress_controller_requests{host=\"lab.hetops.dev\"}[2m]))",
-              "legendFormat": "{{path}}",
+              "expr": "(sum by (dst_deployment) (rate(response_total{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\",classification=\"failure\"}[2m])) or sum by (dst_deployment) (rate(response_total{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\"}[2m])) * 0) / sum by (dst_deployment) (rate(response_total{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\"}[2m]))",
+              "legendFormat": "{{dst_deployment}}",
               "range": true,
               "instant": false,
               "format": "time_series"
@@ -368,7 +368,7 @@ data:
         },
         {
           "type": "timeseries",
-          "title": "Slowest 5% of requests (p95) by route",
+          "title": "Slowest 5% of requests (p95) by service",
           "description": "/chaos is left out: it holds a long-lived event stream that would swamp the numbers.",
           "datasource": {
             "type": "prometheus",
@@ -381,8 +381,8 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "histogram_quantile(0.95, sum by (le, path) (rate(nginx_ingress_controller_request_duration_seconds_bucket{host=\"lab.hetops.dev\",path!=\"/chaos\"}[5m])))",
-              "legendFormat": "{{path}}",
+              "expr": "histogram_quantile(0.95, sum by (le, dst_deployment) (rate(response_latency_ms_bucket{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\",dst_deployment!=\"chaos-api\"}[5m]))) / 1000",
+              "legendFormat": "{{dst_deployment}}",
               "range": true,
               "instant": false,
               "format": "time_series"
@@ -429,7 +429,7 @@ data:
         },
         {
           "type": "timeseries",
-          "title": "Typical request (p50) by route",
+          "title": "Typical request (p50) by service",
           "description": "/chaos is left out, as above.",
           "datasource": {
             "type": "prometheus",
@@ -442,8 +442,8 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "histogram_quantile(0.5, sum by (le, path) (rate(nginx_ingress_controller_request_duration_seconds_bucket{host=\"lab.hetops.dev\",path!=\"/chaos\"}[5m])))",
-              "legendFormat": "{{path}}",
+              "expr": "histogram_quantile(0.5, sum by (le, dst_deployment) (rate(response_latency_ms_bucket{namespace=\"nginx-gateway\",direction=\"outbound\",dst_namespace=~\"clinic|chaos|timeline\",dst_deployment!=\"chaos-api\"}[5m]))) / 1000",
+              "legendFormat": "{{dst_deployment}}",
               "range": true,
               "instant": false,
               "format": "time_series"
