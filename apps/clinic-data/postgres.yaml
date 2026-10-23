@@ -83,7 +83,9 @@ spec:
             secretKeyRef: { name: postgres-auth, key: POSTGRES_PASSWORD }
         resources:
           requests: { cpu: 10m, memory: 32Mi }
-          limits: { cpu: 100m, memory: 64Mi }   # at 50m it was throttled in half its CPU periods (CPUThrottlingHigh all day)
+          # It uses under 1 millicore on average, but each scrape is a few ms of CPU in one burst, and the CFS quota
+          # throttles a burst: 50m was throttled in 50% of periods, 100m in 29% (alert at 25%). 300m lets a scrape finish.
+          limits: { cpu: 300m, memory: 64Mi }
         securityContext:
           runAsUser: 65534     # "nobody": the exporter does not need the postgres user
           allowPrivilegeEscalation: false
