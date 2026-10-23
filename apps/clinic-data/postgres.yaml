@@ -83,7 +83,7 @@ spec:
             secretKeyRef: { name: postgres-auth, key: POSTGRES_PASSWORD }
         resources:
           requests: { cpu: 10m, memory: 32Mi }
-          limits: { cpu: 50m, memory: 64Mi }
+          limits: { cpu: 100m, memory: 64Mi }   # at 50m it was throttled in half its CPU periods (CPUThrottlingHigh all day)
         securityContext:
           runAsUser: 65534     # "nobody": the exporter does not need the postgres user
           allowPrivilegeEscalation: false
