@@ -13,6 +13,7 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 0              # a failed night is a result, not something to retry
+      ttlSecondsAfterFinished: 604800  # each night's Job is kept a week, then removed, so an old failure stops firing KubeJobFailed
       activeDeadlineSeconds: 3600
       template:
         metadata: { labels: { app: chaos-selftest } }
