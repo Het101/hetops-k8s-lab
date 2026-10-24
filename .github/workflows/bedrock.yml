@@ -80,7 +80,8 @@ jobs:
         run: |
           sudo systemctl start bedrock-drift.service
           sudo journalctl -u bedrock-drift.service --no-pager -o cat | tail -n 5 | tee drift.log
-          grep -q '^0 changed, 0 failed' drift.log
+          grep -q '^my-workspace: 0 changed, 0 failed' drift.log
+          if grep -qE 'FAILED|would change' drift.log; then echo 'the drift check found differences'; exit 1; fi
       - name: The cluster runs a pod, and the audit log is being written
         run: |
           kubectl get nodes -o wide
