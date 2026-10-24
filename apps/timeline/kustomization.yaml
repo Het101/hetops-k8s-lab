@@ -9,4 +9,4 @@ resources:
 - networkpolicies.yaml
 images:
 - name: ghcr.io/het101/change-timeline
-  newTag: "64c0d51"
+  newTag: "3377d44"
