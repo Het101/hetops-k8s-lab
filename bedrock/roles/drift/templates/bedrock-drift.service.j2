@@ -10,5 +10,8 @@ User={{ drift_user }}
 WorkingDirectory={{ drift_bedrock_dir }}
 Environment=BEDROCK_DIR={{ drift_bedrock_dir }}
 Environment=PATH={{ drift_ansible_bin }}:/usr/local/bin:/usr/bin:/bin
+{% if drift_inventory %}
+Environment=ANSIBLE_INVENTORY={{ drift_inventory }}
+{% endif %}
 ExecStart=/usr/local/bin/bedrock-drift
 TimeoutStartSec=30min
