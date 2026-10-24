@@ -109,7 +109,7 @@ data:
         {
           "type": "stat",
           "title": "Slowest 5% of /api requests",
-          "description": "p95 latency of /api at ingress, last 5 minutes.",
+          "description": "p95 latency of /api at the gateway, last 5 minutes.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

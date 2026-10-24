@@ -551,8 +551,8 @@ data:
         {
           "id": 8,
           "type": "timeseries",
-          "title": "Failing routes now (diagnostic)",
-          "description": "Ingress 5xx and 499 (client gave up) per path. For finding the cause, never for alerting.",
+          "title": "Failing backends now (diagnostic)",
+          "description": "5xx per backend, as the gateway saw them (Linkerd's outbound metrics from nginx-gateway). ingress-nginx and its per-path metrics were removed on 22 Oct; paths are in Kibana (gateway access logs). For finding the cause, never for alerting.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -564,8 +564,8 @@ data:
                 "uid": "prometheus"
               },
               "refId": "A",
-              "expr": "sum by (path, status) (rate(nginx_ingress_controller_requests{host=\"lab.hetops.dev\",status=~\"5..|499\"}[5m]))",
-              "legendFormat": "{{path}} {{status}}",
+              "expr": "sum by (dst_deployment, status_code) (rate(response_total{namespace=\"nginx-gateway\",direction=\"outbound\",status_code=~\"5..\"}[5m]))",
+              "legendFormat": "{{dst_deployment}} {{status_code}}",
               "range": true,
               "instant": false
             }
