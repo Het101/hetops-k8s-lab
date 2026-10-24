@@ -20,13 +20,13 @@ class Differences(unittest.TestCase):
     def test_changed_and_failed_tasks_with_their_roles(self):
         data = {"plays": [{"tasks": [
             task("Gathering Facts", changed=False),
-            task("base : SSH uses Bedrock's settings", changed=True),
+            task("common : SSH uses Bedrock's settings", changed=True),
             task("kubernetes : Apt holds the runtime and the kube packages", changed=False),
             task("audit : The running API server has every audit flag", failed=True),
             task("drift : The drift check runs nightly", skipped=True),
         ]}]}
         changed, failed = drift.differences(data)
-        self.assertEqual(changed, [{"role": "base", "task": "SSH uses Bedrock's settings"}])
+        self.assertEqual(changed, [{"role": "common", "task": "SSH uses Bedrock's settings"}])
         self.assertEqual(failed, [{"role": "audit", "task": "The running API server has every audit flag"}])
 
     def test_a_clean_run_has_nothing_to_say(self):
@@ -40,15 +40,15 @@ class Differences(unittest.TestCase):
 class Handlers(unittest.TestCase):
     def test_a_handler_that_would_run_is_not_a_second_change(self):
         data = {"plays": [{"tasks": [
-            task("base : SSH uses Bedrock's settings", changed=True),
-            task("base : Reload SSH", changed=True),
+            task("common : SSH uses Bedrock's settings", changed=True),
+            task("common : Reload SSH", changed=True),
         ]}]}
         changed, _ = drift.differences(data, drift.handlers(BEDROCK))
-        self.assertEqual(changed, [{"role": "base", "task": "SSH uses Bedrock's settings"}])
+        self.assertEqual(changed, [{"role": "common", "task": "SSH uses Bedrock's settings"}])
 
     def test_the_real_handler_files_are_read(self):
         names = drift.handlers(BEDROCK)
-        for expected in [("base", "Reload SSH"), ("audit", "Restart the API server"), ("kubernetes", "Restart containerd")]:
+        for expected in [("common", "Reload SSH"), ("audit", "Restart the API server"), ("kubernetes", "Restart containerd")]:
             self.assertIn(expected, names)
 
 

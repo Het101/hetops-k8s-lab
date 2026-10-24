@@ -1,19 +1,7 @@
 # The OS baseline a kubeadm node needs, as the kubeadm install guide sets it up. Phase 1: if the server
 # was set up differently (another file name, another value), check mode shows the difference and this
-# role is changed to match the server, not the other way round.
-
-- name: The server is the one Bedrock was written for
-  ansible.builtin.assert:
-    that:
-      - ansible_facts['architecture'] == 'aarch64'
-      - ansible_facts['distribution'] == 'Ubuntu'
-    fail_msg: "Bedrock expects arm64 Ubuntu, found {{ ansible_facts['architecture'] }} {{ ansible_facts['distribution'] }}"
-    quiet: true
-
-- name: Security updates install themselves
-  ansible.builtin.apt:
-    name: unattended-upgrades
-    state: present
+# role is changed to match the server, not the other way round. What every server gets (SSH, updates,
+# reboot awareness) moved to roles/common on 25 Oct, when a second, non-Kubernetes server joined.
 
 - name: Kernel modules for containers and pod networking load at boot
   ansible.builtin.copy:
@@ -73,75 +61,3 @@
     fail_msg: "swap is on: {{ base_swap.stdout }}"
     quiet: true
   when: not (ansible_check_mode and base_swapoff is changed)
-
-# SSH (Phase 2): Bedrock's settings in one drop-in file. validate: tests the rendered file with sshd before
-# it replaces anything; the handlers then test the whole config and reload SSH, only if the file changed.
-# Ubuntu 24.04 starts sshd on demand (ssh.socket), and /run/sshd exists only once it has run. On a fresh
-# machine nobody has SSHed into (the CI rebuild), sshd -t then fails: "Missing privilege separation
-# directory: /run/sshd". The live server has it, so this is ok there.
-- name: Sshd's privilege separation directory exists, so sshd -t can run
-  ansible.builtin.file:
-    path: /run/sshd
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: SSH uses Bedrock's settings
-  ansible.builtin.template:
-    src: 10-bedrock.conf.j2
-    dest: /etc/ssh/sshd_config.d/10-bedrock.conf
-    owner: root
-    group: root
-    mode: "0644"
-    validate: sshd -t -f %s
-  register: base_ssh_dropin
-  notify:
-    - Check the whole SSH config
-    - Reload SSH
-
-# Run the handlers now, not at the end of the play, so the check below reads the new settings.
-- name: Apply a changed SSH config before checking it
-  ansible.builtin.meta: flush_handlers
-
-# A read, never a change: sshd -T prints the settings sshd is actually using, after every include.
-- name: Read SSH's effective settings
-  ansible.builtin.command: sshd -T
-  register: base_sshd
-  check_mode: false
-  changed_when: false
-
-# sshd -T prints lower-case names and values, and "without-password" for prohibit-password. In check
-# mode with a pending change, sshd still runs the old settings, so the check waits for the real run.
-- name: SSH really runs with each of Bedrock's settings
-  ansible.builtin.assert:
-    that: "(item.key ~ ' ' ~ ('without-password' if item.value == 'prohibit-password' else item.value) | string | lower) in base_sshd.stdout_lines"
-    fail_msg: "sshd runs {{ base_sshd.stdout_lines | select('match', '^' ~ item.key ~ ' ') | list }}, Bedrock wants {{ item.key }} {{ item.value }}"
-    quiet: true
-  loop: "{{ base_ssh | dict2items }}"
-  loop_control:
-    label: "{{ item.key }}"
-  when: not (ansible_check_mode and base_ssh_dropin is changed)
-
-# Reboot awareness (Phase 2 step 4). Ubuntu drops /var/run/reboot-required when an update (a kernel,
-# libc, systemd) needs one; discovery found kernel 7.0 installed while 6.17 runs. Bedrock reports it
-# and never reboots: this server also runs every live site, so the window is the owner's call.
-- name: Look for a pending reboot
-  ansible.builtin.stat:
-    path: /var/run/reboot-required
-  register: base_reboot_flag
-
-- name: Read which packages asked for it
-  ansible.builtin.slurp:
-    src: /var/run/reboot-required.pkgs
-  register: base_reboot_pkgs
-  when: base_reboot_flag.stat.exists
-  failed_when: false          # the list is optional; the flag alone is enough
-
-- name: Say so if a reboot is pending
-  ansible.builtin.debug:
-    msg: >-
-      Reboot pending: running kernel {{ ansible_facts['kernel'] }}; asked for by
-      {{ (base_reboot_pkgs.content | default('') | b64decode).split() | unique | join(', ') or 'an update' }}.
-      Bedrock does not reboot this shared server: pick a quiet window.
-  when: base_reboot_flag.stat.exists

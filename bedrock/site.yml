@@ -1,6 +1,16 @@
-# The lab server, from the OS up to a running cluster.
-#   On the live server:  ansible-playbook site.yml --check --diff   (it describes the server: changed=0)
+# The fleet, from the OS up to a running cluster.
+#   On the live servers: ansible-playbook site.yml --check --diff   (it describes them: changed=0)
+#   One group only:      ansible-playbook site.yml --limit staging
 #   On a blank machine:  ansible-playbook site.yml                  (it builds one: CI, Phase 3)
+
+# Every server gets the baseline: SSH hardening, automatic security updates, reboot awareness.
+- name: Every server
+  hosts: all
+  become: true
+  roles:
+    - common
+
+# Only the lab is a Kubernetes node (for now).
 - name: The lab server
   hosts: lab
   become: true

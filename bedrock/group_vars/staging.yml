@@ -1,0 +1,7 @@
+# The staging group: servers the control node reaches over SSH. Variable precedence, lowest first:
+# role defaults < group_vars/all < group_vars/<group> < host_vars/<host> < -e on the command line.
+
+# How Ansible connects. The host key is pinned in the control node's known_hosts (checked against the
+# fingerprint seen from the owner's laptop before it was added), so an unknown key is refused, not trusted.
+ansible_user: ubuntu
+ansible_ssh_private_key_file: ~/.ssh/bedrock_fleet
