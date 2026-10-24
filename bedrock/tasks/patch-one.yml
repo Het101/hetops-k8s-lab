@@ -1,0 +1,34 @@
+# One server's patch, shared by every play in patch.yml (include_tasks keeps each play short).
+
+- name: Refresh the package lists
+  ansible.builtin.apt:
+    update_cache: true
+  changed_when: false              # a cache refresh is not a change to the server
+
+- name: List what would update
+  ansible.builtin.command: apt list --upgradable
+  register: patch_pending
+  changed_when: false
+  check_mode: false
+
+- name: Say what will update
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: {{ (patch_pending.stdout_lines | select('search', 'upgradable') | list | length) }} package(s) to update"
+
+# dist: also installs new dependencies an update needs (a new kernel package). Held packages stay as
+# they are; autoremove clears packages nothing needs any more (old kernels).
+- name: Install the updates
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: true
+  register: patch_apt
+
+- name: Look for a pending reboot
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: patch_reboot
+
+- name: Say so if a reboot is pending
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} needs a reboot to finish this patch. Bedrock never reboots: pick a window."
+  when: patch_reboot.stat.exists

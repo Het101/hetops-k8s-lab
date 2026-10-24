@@ -34,7 +34,7 @@ jobs:
       - name: The drift check's parser
         run: python3 -m unittest discover -s tests -v
       - name: Syntax check
-        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.32.yml --syntax-check
+        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.32.yml --syntax-check && ansible-playbook patch.yml --syntax-check
       - name: ansible-lint
         run: ansible-lint site.yml upgrade.yml
 
