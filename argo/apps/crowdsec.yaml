@@ -16,6 +16,11 @@ spec:
     helm:
       releaseName: crowdsec
       valuesObject:
+        # The LAPI signing secret and registration token come from our own SealedSecret
+        # (platform/crowdsec-bouncer/sealed-crowdsec-lapi-pinned.yaml). Otherwise the chart makes random ones on every
+        # render under Argo CD and the LAPI pod is replaced once a day (found 24 Oct).
+        secrets:
+          externalSecret: { name: crowdsec-lapi-pinned }
         config:
           parsers:
             s02-enrich:

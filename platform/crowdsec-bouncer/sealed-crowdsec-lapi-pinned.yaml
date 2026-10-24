@@ -1,0 +1,21 @@
+# The CrowdSec LAPI's signing secret (csLapiSecret) and agent registration token, pinned (24 Oct).
+# Left to the chart, they come from randAlphaNum: the chart's lookup() of the existing Secret returns nothing
+# under Argo CD (helm template), so every time Argo's 24 h chart cache expired the Secret changed, its checksum
+# annotation changed, and the LAPI pod was replaced (daily at about 10:41 UTC), failing a bouncer run each time.
+# Sealed from the live values, so pinning rotated nothing. Rotate: seal new values under this name, then restart LAPI.
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: crowdsec-lapi-pinned
+  namespace: crowdsec
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }   # before the LAPI and agent that read it
+spec:
+  encryptedData:
+    csLapiSecret: AgB4cAunlU/BH9ZYXWMNfa+xstrjamsGu/TJoA/BvyF1Hg0Z2X7YhPCAXUA+BixfaGKhqJjtx3L+afvCRUMh1mJLMe8vP+hsDV9+wd4NgbVBDD5Buni955yKCGNINRl/Hpmb5UuC2Mlusd9wVzeVAA8tkFnL88GAz1vr47ViirqLswOuZUxHUz7xgvJYpTV+21xzLQw8BR/tGkCJh8RNALfK+1DdtizQxrQo7HPCe1t+OFpAc0p85o7EYrjvIHuOkp2T9m1mJPKBi5htaBQhNmy6ZyGmCi2SPoEr8huwVX20PxgQ+uRtZrYrRsp1ZDFEgOvVFSAxXUzBGFDRmVJQcnhuzDVGllScNU8Cw1RkrI0pdqVaJbmCI2VhskGViEaGSWoACYN42rB89v/qFfssS0wQYQhikmJll9ld0ebVaaRauH30eh9rsfLbLjqDL0Pabqh2TW4DZP53v1F1Eu03rqli1qCG7+3BEkUl35wdmJvMGMb55Y+SI5bDQe9OOrqqxfYOkCtBhIK4t7XARxA3SdV0aNp8UZCN7n/PkpeB4xTTF58AdXgLPM+XjnHyRLHDFkDfZlf5qbpzRXNDfPfJy93jwAYC3mB9BUEuOv9QAg9WM0+0TRgSHG3ywjReqeF7IkD558QKfCLtvxUzcOroSciBNACW5se5hgbQx1fjy3/nw3RZyXjdEYeQdT3ojBonojZtbI6fgzUoFlR1VgjAOTM2h25ap76Njynl3Nmo2AY+r+qOEzbgCpbDuW5WnS5CSHKNBLrFn3zR6ysebO+CT4la
+    registrationToken: AgCNFcQ6n7DiT0mQlZDIj7WK8vKF1pD0aTkycJutBXtXwynBNOLk8Xcp802fHb+qN/gWqfsxIy7p6rR5KMp3agd5uDgzdbfko1HaSdwo234CkgnGCOKDN7EHeHALi8NFjsU9yOVUhq2dEVrJXxlSWs2d0AAqMCo+k62xy7lHB7k+7MRHl/+bClz92Ad4bVmWLVlhHhJurGrwpUcKiBeaiTg+/iYOl4wiAVY1erxSYeCALPg6aQbI8uq9yhA4/h9Q4HTU5FQNSC2sOddhZkP9A+hl0X4yt7he9zk5e4XP0YwSn/d0E5JuQXlHLxymdYBwfFVsiu/0NR2nZw/z0wkUc+b8HAKP2lcstedrwQpqAyGaCrRcbPiNV5iyIyJ6VsAry3decPVpoHzABf5T3hoiwxSqyxwNtI9j0UMJidkBjE8V4ko6EwIGXSb5ghAmvv4R6sl8jmu0LTToEgRWm6QgO+n6z9u86mFfynkLhyjxx28u/n094ejBgAa6uuRUFZIsP3ftWjyvREdAl0D+VsmRaJMciRQjG2TAzScq1AN3XD8VYvl7K6AFFYhzNOpVlCVVvK4Xh+TVf7SW02zMd7YdHqVSqEPGBWlab70Ariobw8FKys0LgpXPpnON4WORcJtXqBP7jxOeuVOxAc67BRQJaHVbcVTObjhKRk6A8JusQeOstb3zA49YHz8A/yp/ykKM2vlYA1t5H9xI1rSm79zC8uu2yYOc1v9c6nIIjGLxUs7aZV8RZx2c5Ny9i8VNNtvj4EM=
+  template:
+    metadata:
+      name: crowdsec-lapi-pinned
+      namespace: crowdsec
+    type: Opaque
