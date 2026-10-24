@@ -1,10 +1,10 @@
-# Role defaults: the lowest-precedence variables. group_vars/lab.yml (or -e on the command line) can
+# Role defaults: the lowest-precedence variables. group_vars/<group>.yml, host_vars/<host>.yml or -e can
 # override any of them without touching the role.
 
 # SSH settings Bedrock owns, written to /etc/ssh/sshd_config.d/10-bedrock.conf. sshd keeps the FIRST
 # value it reads for each setting, and Ubuntu includes sshd_config.d/*.conf in name order at the top
 # of sshd_config, so 10- wins over cloud-init's 50-cloud-init.conf.
-base_ssh:
+common_ssh:
   passwordauthentication: "no"
   permitrootlogin: prohibit-password      # sshd -T prints this as "without-password"
   x11forwarding: "no"                     # discovery: was yes; nothing on a server needs it

@@ -22,7 +22,8 @@ STATE = Path.home() / ".local/state/bedrock/last"
 
 def check():
     env = {**os.environ, "ANSIBLE_STDOUT_CALLBACK": "ansible.posix.json"}
-    run = subprocess.run(["ansible-playbook", "site.yml", "--check"], cwd=BEDROCK, env=env,
+    # --limit lab: this server checks itself. The rest of the fleet is checked from here later (25 Oct).
+    run = subprocess.run(["ansible-playbook", "site.yml", "--check", "--limit", "lab"], cwd=BEDROCK, env=env,
                          capture_output=True, text=True, timeout=1800)
     try:
         return json.loads(run.stdout), run
