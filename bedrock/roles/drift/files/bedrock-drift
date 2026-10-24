@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Bedrock drift check: run the playbook in check mode and tell the Change Timeline what differs.
 
-Run nightly by bedrock-drift.timer (roles/drift). Nothing is changed: --check only. The timeline gets
-a count and the roles, never task names (those stay here, in the journal: journalctl -u bedrock-drift).
-It is told only when something differs, or once when the host matches Bedrock again.
+Run nightly by bedrock-drift.timer (roles/drift) on the control node, for every server in the inventory
+(25 Oct: the lab and vm2). Nothing is changed: --check only. The timeline gets, per server, a count and the
+roles, never task names (those stay here, in the journal: journalctl -u bedrock-drift). It is told only when
+a server differs, or once when it matches Bedrock again.
 """
 import json
 import os
@@ -17,13 +18,13 @@ from pathlib import Path
 
 BEDROCK = Path(os.environ.get("BEDROCK_DIR", Path(__file__).resolve().parent))
 TOKEN = Path("/etc/bedrock/timeline-token")
-STATE = Path.home() / ".local/state/bedrock/last"
+STATE = Path.home() / ".local/state/bedrock/hosts"        # one file per server: "clean" or "drift"
+LEGACY = Path.home() / ".local/state/bedrock/last"        # before 25 Oct: this server's state, alone
 
 
 def check():
     env = {**os.environ, "ANSIBLE_STDOUT_CALLBACK": "ansible.posix.json"}
-    # --limit lab: this server checks itself. The rest of the fleet is checked from here later (25 Oct).
-    run = subprocess.run(["ansible-playbook", "site.yml", "--check", "--limit", "lab"], cwd=BEDROCK, env=env,
+    run = subprocess.run(["ansible-playbook", "site.yml", "--check"], cwd=BEDROCK, env=env,
                          capture_output=True, text=True, timeout=1800)
     try:
         return json.loads(run.stdout), run
@@ -43,19 +44,33 @@ def handlers(bedrock=BEDROCK):
     return names
 
 
-def differences(data, skip=frozenset()):
-    """(changed, failed) tasks as {role, task}; the json callback names tasks 'role : task'. Handlers in
-    skip count when they fail, never when they would change."""
-    changed, failed = [], []
+def per_host(data, skip=frozenset()):
+    """{host: (changed, failed)}, tasks as {role, task}; the json callback names tasks 'role : task'. Every
+    host in the run's stats is listed, so a clean one is reported clean. An unreachable host is a failure:
+    a server the control node cannot reach is not a server that matches. Handlers in skip count when they
+    fail, never when they would change."""
+    hosts = {h: ([], []) for h in data.get("stats", {})}
     for play in data.get("plays", []):
         for t in play.get("tasks", []):
             name = t.get("task", {}).get("name", "")
             role, _, task = name.partition(" : ") if " : " in name else ("", "", name)
-            for result in t.get("hosts", {}).values():
-                if result.get("failed") and not result.get("ignore_errors"):
+            for host, result in t.get("hosts", {}).items():
+                changed, failed = hosts.setdefault(host, ([], []))
+                if result.get("unreachable"):
+                    failed.append({"role": "bedrock", "task": "the server could not be reached"})
+                elif result.get("failed") and not result.get("ignore_errors"):
                     failed.append({"role": role, "task": task})
                 elif result.get("changed") and (role, task) not in skip:
                     changed.append({"role": role, "task": task})
+    return hosts
+
+
+def differences(data, skip=frozenset()):
+    """(changed, failed) over every host together."""
+    changed, failed = [], []
+    for c, f in per_host(data, skip).values():
+        changed += c
+        failed += f
     return changed, failed
 
 
@@ -81,22 +96,27 @@ def main():
     commit = subprocess.run(["git", "-C", str(BEDROCK), "rev-parse", "--short=12", "HEAD"],
                             capture_output=True, text=True).stdout.strip()
     if data is None:
-        changed, failed = [], [{"role": "bedrock", "task": "the playbook did not run"}]
+        results = {socket.gethostname(): ([], [{"role": "bedrock", "task": "the playbook did not run"}])}
         print(run.stderr[-2000:], file=sys.stderr)
     else:
-        changed, failed = differences(data, handlers())
-    for kind, tasks in (("FAILED", failed), ("would change", changed)):
-        for t in tasks:
-            print(f"{kind}: {t['role']} : {t['task']}")
-    now = "drift" if changed or failed else "clean"
-    last = STATE.read_text().strip() if STATE.exists() else "clean"
-    print(f"{len(changed)} changed, {len(failed)} failed, at {commit}; last time: {last}")
+        results = per_host(data, handlers())
     ok = True
-    if now == "drift" or last == "drift":
-        ok = post({"host": socket.gethostname(), "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                   "commit": commit, "changed": changed, "failed": failed, "cleared": now == "clean"})
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(now + "\n")
+    STATE.mkdir(parents=True, exist_ok=True)
+    for host, (changed, failed) in sorted(results.items()):
+        for kind, tasks in (("FAILED", failed), ("would change", changed)):
+            for t in tasks:
+                print(f"{host}: {kind}: {t['role']} : {t['task']}")
+        now = "drift" if changed or failed else "clean"
+        state = STATE / host
+        # This server's state from before the fleet (one file) carries over, so a drift seen then still clears.
+        if not state.exists() and LEGACY.exists() and host == socket.gethostname():
+            state.write_text(LEGACY.read_text())
+        last = state.read_text().strip() if state.exists() else "clean"
+        print(f"{host}: {len(changed)} changed, {len(failed)} failed, at {commit}; last time: {last}")
+        if now == "drift" or last == "drift":
+            ok = post({"host": host, "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                       "commit": commit, "changed": changed, "failed": failed, "cleared": now == "clean"}) and ok
+        state.write_text(now + "\n")
     sys.exit(0 if ok else 1)
 
 

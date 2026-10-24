@@ -37,6 +37,30 @@ class Differences(unittest.TestCase):
         self.assertEqual(changed, [{"role": "", "task": "Some play task"}])
 
 
+class Fleet(unittest.TestCase):
+    """25 Oct: the check runs from the control node across every server; each is reported on its own."""
+
+    def test_each_server_is_reported_on_its_own(self):
+        data = {"plays": [{"tasks": [
+            {"task": {"name": "common : SSH uses Bedrock's settings"},
+             "hosts": {"my-workspace": {"changed": False}, "vm2": {"changed": True}}},
+            {"task": {"name": "audit : The running API server has every audit flag"},
+             "hosts": {"my-workspace": {"failed": True}}},
+        ]}], "stats": {"my-workspace": {}, "vm2": {}}}
+        hosts = drift.per_host(data)
+        self.assertEqual(hosts["vm2"], ([{"role": "common", "task": "SSH uses Bedrock's settings"}], []))
+        self.assertEqual(hosts["my-workspace"], ([], [{"role": "audit", "task": "The running API server has every audit flag"}]))
+
+    def test_an_unreachable_server_is_a_failure_not_a_match(self):
+        data = {"plays": [{"tasks": [{"task": {"name": "Gathering Facts"}, "hosts": {"vm2": {"unreachable": True}}}]}],
+                "stats": {"vm2": {}}}
+        self.assertEqual(drift.per_host(data)["vm2"], ([], [{"role": "bedrock", "task": "the server could not be reached"}]))
+
+    def test_a_clean_server_is_still_listed_so_its_state_can_clear(self):
+        data = {"plays": [{"tasks": [task("common : x", changed=False)]}], "stats": {"my-workspace": {}, "vm2": {}}}
+        self.assertEqual(drift.per_host(data), {"my-workspace": ([], []), "vm2": ([], [])})
+
+
 class Handlers(unittest.TestCase):
     def test_a_handler_that_would_run_is_not_a_second_change(self):
         data = {"plays": [{"tasks": [
