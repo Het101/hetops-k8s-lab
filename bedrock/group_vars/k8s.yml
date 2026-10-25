@@ -1,0 +1,21 @@
+# Every Kubernetes node: the lab (production) and staging run the SAME versions (group k8s, 25 Oct). Staging
+# mirrors production by construction: one file, not two copies. Written down from the lab's discovery (Phase 1
+# step 3, Phase 3 step 1): on a live node these describe it (check mode: changed=0); on a blank one they build it.
+
+# The kube packages, held. Discovery, 21 Oct: 1.31.14. Upgraded 22 Oct with upgrade.yml -e @upgrades/1.32.yml
+# (rehearsed in CI first). Upgrading is one minor at a time: a new upgrades/<minor>.yml, then these values.
+kubernetes_minor: "1.32"
+kubernetes_package_version: "1.32.13-1.1"
+
+# The one containerd, shared with Coolify's Docker (namespaces moby and k8s.io). Held.
+containerd_package_version: "2.2.3-1~ubuntu.24.04~noble"
+
+# The cluster, as kubeadm-config and kube-system show it. Calico from the plain manifest (no Tigera
+# operator), whose default pool is this pod subnet. 3.27.0 until 22 Oct, then 3.29.7 (upgrades/1.32.yml).
+cluster_pod_subnet: 192.168.0.0/16
+cluster_calico_version: v3.29.7
+
+
+# The Python Kubernetes API client Ansible's kubernetes.core modules use: the lab's (pipx inject ansible
+# kubernetes, 37.0.1 on 25 Oct), so a node with its own venv runs the same one.
+kubernetes_api_client_version: "37.0.1"

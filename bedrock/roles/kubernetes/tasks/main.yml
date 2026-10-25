@@ -6,7 +6,7 @@
     that:
       - kubernetes_minor | length > 0
       - kubernetes_package_version.startswith(kubernetes_minor ~ '.')
-    fail_msg: "Set kubernetes_minor and kubernetes_package_version in group_vars/lab.yml"
+    fail_msg: "Set kubernetes_minor and kubernetes_package_version in group_vars/k8s.yml"
     quiet: true
 
 # ── apt sources: the exact files the server has (discovery: 110 and 108 bytes, one line each) ──
@@ -159,3 +159,20 @@
   ansible.builtin.systemd_service:
     name: kubelet
     enabled: true
+
+# Option A (25 Oct): Ansible's kubernetes.core modules run on the node they manage. On the lab the node IS
+# the controller, and Ansible's own venv has the client (bedrock_api_python == ansible_playbook_python: skip).
+# A node reached over SSH gets its own venv, pinned to the controller's client version (group_vars/k8s.yml).
+- name: A Python with the Kubernetes API client, on nodes Ansible reaches over SSH
+  when: bedrock_api_python != ansible_playbook_python
+  block:
+    - name: Python's venv module
+      ansible.builtin.apt:
+        name: python3-venv
+        state: present
+
+    - name: The Kubernetes API client, at the controller's version
+      ansible.builtin.pip:
+        name: "kubernetes=={{ kubernetes_api_client_version }}"
+        virtualenv: "{{ bedrock_api_python | dirname | dirname }}"
+        virtualenv_command: python3 -m venv

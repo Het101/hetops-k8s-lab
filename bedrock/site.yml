@@ -1,4 +1,4 @@
-# The fleet, from the OS up to a running cluster.
+# The fleet, from the OS up to running clusters.
 #   On the live servers: ansible-playbook site.yml --check --diff   (it describes them: changed=0)
 #   One group only:      ansible-playbook site.yml --limit staging
 #   On a blank machine:  ansible-playbook site.yml                  (it builds one: CI, Phase 3)
@@ -10,13 +10,20 @@
   roles:
     - common
 
-# Only the lab is a Kubernetes node (for now).
-- name: The lab server
-  hosts: lab
+# Every Kubernetes node (group k8s: the lab and staging) is built the same way, at the same versions.
+# Each node manages its own cluster (option A): API tasks run on the node, with the node's kubeconfig.
+- name: Kubernetes nodes
+  hosts: k8s
   become: true
   roles:
     - base
     - kubernetes
     - cluster
     - audit
+
+# The nightly drift check lives on the control node (the lab) and checks the whole fleet from there.
+- name: The control node
+  hosts: lab
+  become: true
+  roles:
     - drift

@@ -10,60 +10,65 @@
 - name: The audit policy
   ansible.builtin.import_tasks: policy.yml
 
-# The kubernetes.core modules need the Python `kubernetes` client. Modules run with the managed host's
-# Python (/usr/bin/python3.12, no client; Ubuntu's python3-kubernetes is too old); the client is in
-# Ansible's own venv (pipx inject ansible kubernetes). The controller is this same host, so these two
-# tasks run with the controller's Python. Every other module keeps the system Python apt needs.
-- name: Read kubeadm's cluster configuration
-  vars:
-    ansible_python_interpreter: "{{ ansible_playbook_python }}"
-  kubernetes.core.k8s_info:
-    kind: ConfigMap
-    namespace: kube-system
-    name: kubeadm-config
-    kubeconfig: "{{ audit_kubeconfig }}"
-  register: audit_kubeadm_config
-
-# kubeadm stores the config as one YAML string. Compare it parsed, not as text: re-serialising never
-# matches kubeadm's formatting byte for byte, so a text compare would report a change on every run.
-# Extra args or volumes someone else adds are kept; only ours are set.
-- name: Work out the configuration with the audit settings in it
-  vars:
-    audit_current: "{{ audit_kubeadm_config.resources[0].data.ClusterConfiguration | from_yaml }}"
-    audit_arg_names: "{{ audit_api_server_args | map(attribute='name') | list }}"
-    audit_volume_names: "{{ audit_api_server_volumes | map(attribute='name') | list }}"
-    audit_args: "{{ (audit_current.apiServer.extraArgs | default([]) | rejectattr('name', 'in', audit_arg_names) | list) + audit_api_server_args }}"
-    audit_volumes: "{{ (audit_current.apiServer.extraVolumes | default([]) | rejectattr('name', 'in', audit_volume_names) | list) + audit_api_server_volumes }}"
-  ansible.builtin.set_fact:
-    audit_cluster_config: "{{ audit_current }}"
-    audit_wanted_config: "{{ audit_current | combine({'apiServer': {'extraArgs': audit_args, 'extraVolumes': audit_volumes}}, recursive=True) }}"
-
-- name: Kubeadm's configuration carries the audit settings, so upgrades keep them
-  vars:
-    ansible_python_interpreter: "{{ ansible_playbook_python }}"
-  kubernetes.core.k8s:
-    kubeconfig: "{{ audit_kubeconfig }}"
-    state: present
-    definition:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: kubeadm-config
+# Everything below asks the API server or reads its manifest: skipped in check mode on a node that has no
+# cluster yet (roles/cluster sets cluster_ready). Always runs on a live node.
+- name: The cluster carries and runs the audit settings
+  when: cluster_ready | default(true)
+  block:
+    # The kubernetes.core modules need the Python `kubernetes` client; the system Python has none (Ubuntu's
+    # python3-kubernetes is too old). bedrock_api_python names one that has it: on the lab, Ansible's own venv
+    # (the controller is the node); on staging, /opt/bedrock/venv made by roles/kubernetes. Every other module
+    # keeps the system Python apt needs.
+    - name: Read kubeadm's cluster configuration
+      vars:
+        ansible_python_interpreter: "{{ bedrock_api_python }}"
+      kubernetes.core.k8s_info:
+        kind: ConfigMap
         namespace: kube-system
-      data:
-        ClusterConfiguration: "{{ audit_wanted_config | to_nice_yaml(indent=2) }}"
-  when: audit_wanted_config != audit_cluster_config
+        name: kubeadm-config
+        kubeconfig: "{{ audit_kubeconfig }}"
+      register: audit_kubeadm_config
 
-- name: Read the API server's manifest
-  ansible.builtin.slurp:
-    src: /etc/kubernetes/manifests/kube-apiserver.yaml
-  register: audit_manifest
+    # kubeadm stores the config as one YAML string. Compare it parsed, not as text: re-serialising never
+    # matches kubeadm's formatting byte for byte, so a text compare would report a change on every run.
+    # Extra args or volumes someone else adds are kept; only ours are set.
+    - name: Work out the configuration with the audit settings in it
+      vars:
+        audit_current: "{{ audit_kubeadm_config.resources[0].data.ClusterConfiguration | from_yaml }}"
+        audit_arg_names: "{{ audit_api_server_args | map(attribute='name') | list }}"
+        audit_volume_names: "{{ audit_api_server_volumes | map(attribute='name') | list }}"
+        audit_args: "{{ (audit_current.apiServer.extraArgs | default([]) | rejectattr('name', 'in', audit_arg_names) | list) + audit_api_server_args }}"
+        audit_volumes: "{{ (audit_current.apiServer.extraVolumes | default([]) | rejectattr('name', 'in', audit_volume_names) | list) + audit_api_server_volumes }}"
+      ansible.builtin.set_fact:
+        audit_cluster_config: "{{ audit_current }}"
+        audit_wanted_config: "{{ audit_current | combine({'apiServer': {'extraArgs': audit_args, 'extraVolumes': audit_volumes}}, recursive=True) }}"
 
-- name: The running API server has every audit flag
-  ansible.builtin.assert:
-    that: "('--' ~ item.name ~ '=' ~ item.value) in (audit_manifest.content | b64decode)"
-    fail_msg: "--{{ item.name }}={{ item.value }} is missing from kube-apiserver.yaml"
-    quiet: true
-  loop: "{{ audit_api_server_args }}"
-  loop_control:
-    label: "{{ item.name }}"
+    - name: Kubeadm's configuration carries the audit settings, so upgrades keep them
+      vars:
+        ansible_python_interpreter: "{{ bedrock_api_python }}"
+      kubernetes.core.k8s:
+        kubeconfig: "{{ audit_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: kubeadm-config
+            namespace: kube-system
+          data:
+            ClusterConfiguration: "{{ audit_wanted_config | to_nice_yaml(indent=2) }}"
+      when: audit_wanted_config != audit_cluster_config
+
+    - name: Read the API server's manifest
+      ansible.builtin.slurp:
+        src: /etc/kubernetes/manifests/kube-apiserver.yaml
+      register: audit_manifest
+
+    - name: The running API server has every audit flag
+      ansible.builtin.assert:
+        that: "('--' ~ item.name ~ '=' ~ item.value) in (audit_manifest.content | b64decode)"
+        fail_msg: "--{{ item.name }}={{ item.value }} is missing from kube-apiserver.yaml"
+        quiet: true
+      loop: "{{ audit_api_server_args }}"
+      loop_control:
+        label: "{{ item.name }}"

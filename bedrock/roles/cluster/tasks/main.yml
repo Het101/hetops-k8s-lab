@@ -25,38 +25,63 @@
       args:
         creates: /etc/kubernetes/admin.conf
 
-# The user running ansible-playbook gets a kubeconfig (the audit and cluster roles' kubernetes.core
-# tasks read it on the controller, as that user). An existing one is never replaced.
-- name: The controller user has a .kube directory
+# The node's user (bedrock_kube_user: the controller user on the lab, ubuntu on staging) gets a kubeconfig;
+# the audit and cluster roles' kubernetes.core tasks use it. An existing one is never replaced.
+- name: The node user has a .kube directory
   ansible.builtin.file:
-    path: "{{ lookup('ansible.builtin.env', 'HOME') }}/.kube"
+    path: "{{ bedrock_kube_home }}/.kube"
     state: directory
-    owner: "{{ lookup('ansible.builtin.env', 'USER') }}"
+    owner: "{{ bedrock_kube_user }}"
     mode: "0700"
   when: not cluster_admin_conf.stat.exists
 
-- name: The controller user can reach the cluster
+- name: The node user can reach the cluster
   ansible.builtin.copy:
     src: /etc/kubernetes/admin.conf
     remote_src: true
-    dest: "{{ lookup('ansible.builtin.env', 'HOME') }}/.kube/config"
-    owner: "{{ lookup('ansible.builtin.env', 'USER') }}"
+    dest: "{{ bedrock_kube_home }}/.kube/config"
+    owner: "{{ bedrock_kube_user }}"
     mode: "0600"
     force: false
   when: not cluster_admin_conf.stat.exists
 
+# Option A (25 Oct): every API task below runs ON this node, with this node's kubeconfig. In check mode on a
+# node without a cluster yet nothing above ran, so there is no API to ask: skip the API tasks (here and in
+# roles/audit) rather than fail. A real run always has a cluster by this point.
+- name: Is there a cluster to ask?
+  ansible.builtin.set_fact:
+    cluster_ready: "{{ cluster_admin_conf.stat.exists or not ansible_check_mode }}"
+
+# The guard: a staging run must never reach the lab's API (or the reverse). The kubeconfig's server must be
+# one of this node's own addresses, so a mix-up of kubeconfigs fails here instead of changing the wrong cluster.
+- name: Read which API server the node user's kubeconfig points at
+  ansible.builtin.slurp:
+    src: "{{ audit_kubeconfig }}"
+  register: cluster_kubeconfig
+  when: cluster_ready
+
+- name: The kubeconfig talks to this node's own API server
+  vars:
+    cluster_api_host: "{{ (cluster_kubeconfig.content | b64decode | from_yaml).clusters[0].cluster.server | urlsplit('hostname') }}"
+  ansible.builtin.assert:
+    that: cluster_api_host in (ansible_facts['all_ipv4_addresses'] + ['127.0.0.1'])
+    fail_msg: "{{ audit_kubeconfig }} on {{ inventory_hostname }} points at {{ cluster_api_host }}, not at this node: refusing to touch another cluster"
+    quiet: true
+  when: cluster_ready
+
 - name: Look for Calico
   vars:
-    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
   kubernetes.core.k8s_info:
     kind: DaemonSet
     namespace: kube-system
     name: calico-node
     kubeconfig: "{{ audit_kubeconfig }}"
   register: cluster_calico
+  when: cluster_ready
 
 - name: Calico is installed (only where it is missing)
-  when: cluster_calico.resources | length == 0
+  when: cluster_ready and cluster_calico.resources | length == 0
   block:
     - name: Calico's manifest, at the written-down version
       ansible.builtin.get_url:
@@ -66,7 +91,7 @@
 
     - name: Calico runs
       vars:
-        ansible_python_interpreter: "{{ ansible_playbook_python }}"
+        ansible_python_interpreter: "{{ bedrock_api_python }}"
       kubernetes.core.k8s:
         state: present
         src: "/etc/kubernetes/bedrock-calico-{{ cluster_calico_version }}.yaml"
@@ -74,7 +99,7 @@
 
 - name: The node is Ready
   vars:
-    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
   kubernetes.core.k8s_info:
     kind: Node
     kubeconfig: "{{ audit_kubeconfig }}"
@@ -83,3 +108,4 @@
       type: Ready
       status: "True"
     wait_timeout: 300
+  when: cluster_ready
