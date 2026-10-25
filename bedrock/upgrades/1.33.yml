@@ -1,0 +1,15 @@
+# The upgrade to Kubernetes 1.33 (from 1.32), the first of three: 1.32 and 1.33 are both past end of life
+# (28 Feb and 28 Jun 2026), 1.34 ends 27 Oct 2026, so the lab goes 1.32 -> 1.33 -> 1.34 -> 1.35.
+#   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags calico       # first: Calico 3.31 is tested on 1.32
+#   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags kubernetes   # then the cluster
+upgrade_kubernetes_minor: "1.33"
+upgrade_kubernetes_package_version: "1.33.13-1.1"   # the latest 1.33 patch on pkgs.k8s.io, 25 Oct 2026
+# Calico 3.29 is tested up to 1.32. 3.31 is tested on 1.32 to 1.35, so this one move covers the whole chain.
+upgrade_calico_version: v3.31.7
+# Keep etcd where it is unless kubeadm's plan (shown before apply) asks for a newer one.
+upgrade_etcd: false
+# Where this upgrade starts from (CI builds this first, then rehearses the upgrade from it).
+upgrade_from_vars:
+  kubernetes_minor: "1.32"
+  kubernetes_package_version: "1.32.13-1.1"
+  cluster_calico_version: v3.29.7

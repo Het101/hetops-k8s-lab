@@ -1,0 +1,238 @@
+# One server's Kubernetes upgrade, with the values from upgrades/<minor>.yml. Imported by upgrade.yml, once
+# per play (staging, then the lab). Runs on the node itself: over SSH for staging, locally on the lab.
+- name: The upgrade's values are given
+  ansible.builtin.assert:
+    that:
+      - upgrade_kubernetes_minor is defined
+      - upgrade_kubernetes_package_version.startswith(upgrade_kubernetes_minor ~ '.')
+      - upgrade_calico_version is defined
+    fail_msg: "Pass the upgrade's values: -e @upgrades/<minor>.yml"
+    quiet: true
+  tags: [always]
+
+# 22 Oct: the upgrade overlapped the nightly chaos self-test (03:00 IST = 21:30 UTC), which then failed
+# (kill-postgres over target while the control plane restarted). Never upgrade under a running test.
+# Staging has no chaos namespace: the read fails, finds no jobs, and the check passes.
+- name: Read the chaos lab's running jobs
+  ansible.builtin.command: kubectl -n chaos get jobs -o jsonpath={.items[?(@.status.active)].metadata.name}
+  register: upgrade_chaos_jobs
+  changed_when: false
+  failed_when: false
+  tags: [always]
+
+- name: No chaos self-test is running
+  ansible.builtin.assert:
+    that: upgrade_chaos_jobs.stdout | length == 0
+    fail_msg: "A chaos job is running ({{ upgrade_chaos_jobs.stdout }}); the self-test runs at 03:00 IST (21:30 UTC). Wait for it."
+    quiet: true
+  tags: [always]
+
+# ── Calico ──────────────────────────────────────────────────────────────────────────────────────
+- name: Calico
+  tags: [calico]
+  block:
+    - name: Read Calico's running version
+      ansible.builtin.command: kubectl -n kube-system get ds calico-node -o jsonpath={.spec.template.spec.containers[0].image}
+      register: upgrade_calico_image
+      changed_when: false
+
+    # On the lab server this file chains calico, portmap, bandwidth, linkerd-cni. A machine without it
+    # (CI's throwaway cluster names it otherwise) simply has no Linkerd chain to wait for.
+    - name: Read the CNI chain (Linkerd's CNI plugin chains itself after Calico)
+      ansible.builtin.slurp:
+        src: /etc/cni/net.d/10-calico.conflist
+      register: upgrade_cni_before
+      failed_when: false
+
+    - name: Calico moves to the new version
+      when: not upgrade_calico_image.stdout.endswith(':' ~ upgrade_calico_version)
+      block:
+        - name: Calico's manifest at the new version
+          ansible.builtin.get_url:
+            url: "https://raw.githubusercontent.com/projectcalico/calico/{{ upgrade_calico_version }}/manifests/calico.yaml"
+            dest: "/etc/kubernetes/bedrock-calico-{{ upgrade_calico_version }}.yaml"
+            mode: "0644"
+
+        # Calico's own upgrade instruction for a manifest install. The live DaemonSet matched the stock
+        # 3.27.0 manifest exactly (22 Oct), so the stock new one changes the version and nothing else.
+        - name: Apply it
+          ansible.builtin.command: >-
+            kubectl apply --server-side --force-conflicts
+            -f /etc/kubernetes/bedrock-calico-{{ upgrade_calico_version }}.yaml
+          changed_when: true
+
+        - name: Calico's pods roll out
+          ansible.builtin.command: "kubectl -n kube-system rollout status {{ item }} --timeout=300s"
+          loop: [ds/calico-node, deploy/calico-kube-controllers]
+          changed_when: false
+
+    # Calico's installer rewrites the conflist; linkerd-cni watches the directory and chains itself back
+    # (its repair controller fixes pods created in between). Do not go on until it has.
+    - name: Linkerd's CNI plugin is back in the chain
+      ansible.builtin.slurp:
+        src: /etc/cni/net.d/10-calico.conflist
+      register: upgrade_cni_after
+      until: "'linkerd-cni' in (upgrade_cni_after.content | b64decode)"
+      retries: 30
+      delay: 5
+      when: "'linkerd-cni' in (upgrade_cni_before.content | default('') | b64decode)"
+
+# ── Kubernetes ──────────────────────────────────────────────────────────────────────────────────
+- name: Kubernetes
+  tags: [kubernetes]
+  block:
+    - name: Read the installed packages
+      ansible.builtin.package_facts:
+
+    # Where the cluster is = the version the API server runs, not the kubeadm package: kubeadm is upgraded
+    # first, so after a failed apply (live, 22 Oct) the package says 1.32 while the cluster is still 1.31,
+    # and a re-run keyed on the package would have skipped the upgrade.
+    - name: Read the API server's manifest
+      ansible.builtin.slurp:
+        src: /etc/kubernetes/manifests/kube-apiserver.yaml
+      register: upgrade_apiserver_manifest
+
+    - name: Work out where the cluster is
+      ansible.builtin.set_fact:
+        upgrade_from: >-
+          {{ (upgrade_apiserver_manifest.content | b64decode | regex_search('kube-apiserver:(v[0-9.]+)', '\1'))[0] }}
+        upgrade_to: "v{{ upgrade_kubernetes_package_version.split('-')[0] }}"
+
+    - name: Work out the minor version it is on
+      ansible.builtin.set_fact:
+        upgrade_from_minor: "{{ upgrade_from[1:].split('.')[:2] | join('.') }}"
+
+    - name: One minor version at a time (kubeadm's rule)
+      ansible.builtin.assert:
+        that: >-
+          upgrade_from_minor == upgrade_kubernetes_minor or
+          (upgrade_from_minor.split('.')[1] | int) + 1 == (upgrade_kubernetes_minor.split('.')[1] | int)
+        fail_msg: "kubeadm {{ upgrade_from }} cannot go straight to {{ upgrade_kubernetes_minor }}"
+        quiet: true
+
+    - name: Upgrade the cluster
+      when: upgrade_from != upgrade_to
+      block:
+        # An etcd snapshot first: the one thing a failed control-plane upgrade cannot rebuild from git.
+        - name: Find the etcd pod
+          ansible.builtin.command: kubectl -n kube-system get pods -l component=etcd -o jsonpath={.items[0].metadata.name}
+          register: upgrade_etcd_pod
+          changed_when: false
+
+        - name: Snapshot etcd onto the host (/var/lib/etcd is the etcd pod's hostPath)
+          ansible.builtin.command: >-
+            kubectl -n kube-system exec {{ upgrade_etcd_pod.stdout }} -- etcdctl
+            --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt
+            --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+            snapshot save /var/lib/etcd/bedrock-before-{{ upgrade_to }}.db
+          changed_when: true
+
+        - name: Apt reads the new minor version's repository
+          ansible.builtin.copy:
+            dest: /etc/apt/sources.list.d/kubernetes.list
+            content: >                # folded: one line and a newline, as roles/kubernetes writes it
+              deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg]
+              https://pkgs.k8s.io/core:/stable:/v{{ upgrade_kubernetes_minor }}/deb/ /
+            mode: "0644"
+
+        - name: Apt knows the new repository
+          ansible.builtin.apt:
+            update_cache: true
+
+        - name: Kubeadm first
+          ansible.builtin.apt:
+            name: "kubeadm={{ upgrade_kubernetes_package_version }}"
+            allow_change_held_packages: true
+
+        - name: Kubeadm's plan
+          ansible.builtin.command: kubeadm upgrade plan {{ upgrade_to }}
+          register: upgrade_plan
+          changed_when: false
+
+        - name: Show the plan
+          ansible.builtin.debug:
+            msg: "{{ upgrade_plan.stdout_lines | select('search', 'kube-apiserver|etcd|CoreDNS|kube-proxy|kubelet') | list }}"
+
+        # kubeadm asks the API server for the etcd pods before it touches the control plane. On 22 Oct,
+        # right after Calico's rollout made every controller reconnect, that call timed out and kubeadm rolled
+        # back. So: wait until the API server answers, and if apply still fails, wait and try once more
+        # (kubeadm rolls back on failure, and re-running is its documented recovery).
+        - name: The API server answers before kubeadm starts
+          ansible.builtin.uri:
+            url: https://127.0.0.1:6443/readyz
+            validate_certs: false
+          register: upgrade_readyz
+          until: upgrade_readyz.status == 200
+          retries: 36
+          delay: 5
+
+        # Regenerates the control plane from kubeadm-config, which carries the audit settings (Phase 2
+        # step 3), and renews the control plane's certificates. etcd only when the plan changes its version
+        # (1.31 to 1.32: 3.5.24-0 to 3.5.24-0): an etcd restart is the slow part on this server.
+        - name: Kubeadm upgrade apply
+          ansible.builtin.command: >-
+            kubeadm upgrade apply {{ upgrade_to }} --yes
+            --etcd-upgrade={{ upgrade_etcd | default(false) | string | lower }}
+          register: upgrade_apply
+          until: upgrade_apply.rc == 0
+          retries: 1
+          delay: 60
+          changed_when: true
+
+        - name: Then the kubelet and kubectl
+          ansible.builtin.apt:
+            name:
+              - "kubelet={{ upgrade_kubernetes_package_version }}"
+              - "kubectl={{ upgrade_kubernetes_package_version }}"
+            allow_change_held_packages: true
+
+        - name: The kubelet restarts on the new version
+          ansible.builtin.systemd_service:
+            name: kubelet
+            state: restarted
+            daemon_reload: true
+
+    - name: Held again
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop: [kubeadm, kubelet, kubectl]
+
+    - name: The node is Ready on the new version
+      ansible.builtin.command: >-
+        kubectl get node -o
+        'jsonpath={.items[0].status.nodeInfo.kubeletVersion}/{.items[0].status.conditions[?(@.type=="Ready")].status}'
+      register: upgrade_node
+      until: upgrade_node.stdout == upgrade_to ~ '/True'
+      retries: 36
+      delay: 5
+      changed_when: false
+
+    # 22 Oct: Argo CD kept the old cluster version (1.31.14) for five hours after the upgrade. Its cached version
+    # refreshes only on a 24 h resync, so every Helm chart rendered for 1.31, and a chart needing 1.32 (NGINX
+    # Gateway Fabric) refused to render. A controller restart reads the new version. Clusters without Argo CD
+    # (CI's) skip it.
+    - name: Find Argo CD's application controller
+      ansible.builtin.command: kubectl -n argocd get statefulset argocd-application-controller -o name
+      register: upgrade_argocd_controller
+      changed_when: false
+      failed_when: false
+      when: upgrade_from != upgrade_to
+
+    - name: Argo CD reads the new cluster version
+      ansible.builtin.command: kubectl -n argocd rollout restart statefulset/argocd-application-controller
+      changed_when: true
+      when:
+        - upgrade_from != upgrade_to
+        - upgrade_argocd_controller.rc | default(1) == 0
+
+    - name: Argo CD's controller is back
+      ansible.builtin.command: kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=180s
+      changed_when: false
+      when:
+        - upgrade_from != upgrade_to
+        - upgrade_argocd_controller.rc | default(1) == 0
+
+    - name: The API server still has every audit flag (kubeadm regenerated its manifest)
+      ansible.builtin.include_role:
+        name: audit
