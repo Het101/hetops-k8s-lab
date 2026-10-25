@@ -21,6 +21,18 @@ spec:
         # render under Argo CD and the LAPI pod is replaced once a day (found 24 Oct).
         secrets:
           externalSecret: { name: crowdsec-lapi-pinned }
+        # mTLS (25 Oct): the agent signs in to the LAPI with a client certificate instead of registering by pod name.
+        # A DaemonSet pod keeps its name across a node reboot, so "cscli lapi register" got 403 "user already exist"
+        # after every reboot (21 and 25 Oct) and the IPS went blind. With TLS the agent's init only waits for the LAPI.
+        # cert-manager (argo/apps/cert-manager.yaml) issues a self-signed root, a CA, and certificates for the LAPI, the
+        # agent and bouncers. The LAPI moves to https; bouncers keep their API keys over TLS (cronjob.yaml).
+        tls:
+          enabled: true
+          certManager:
+            # Chart 0.24.2 bug: the agent and bouncer Certificates always render "secretTemplate:", empty = null, which
+            # cert-manager rejects. A label makes every template render a real object. Drop when the chart is fixed.
+            secretTemplate:
+              labels: { app.kubernetes.io/part-of: crowdsec }
         config:
           parsers:
             s02-enrich:
@@ -37,7 +49,8 @@ spec:
           # stopped detecting until a person deleted the machine. Now the LAPI deletes agents silent for 15 min,
           # and the agent's next retry registers. The GC runs hourly, so it heals within about 15-75 min.
           # Bans survive: deleting a machine does not cascade to its alerts (schema, v1.8.1); only an alert's
-          # own decisions cascade. The durable fix is mTLS agent auth (tls.enabled), which needs cert-manager.
+          # own decisions cascade. The durable fix, mTLS agent auth, came on 25 Oct (tls above). A TLS agent appears as
+          # "CrowdSec Agent@<pod IP>", so a reboot (new IP) leaves the old entry behind: cert: 1h clears those.
           config.yaml.local: |
             api:
               server:
@@ -53,6 +66,7 @@ spec:
               flush:
                 agents_autodelete:
                   login_password: 15m
+                  cert: 1h
         container_runtime: containerd          # kubeadm uses containerd, not docker (log line format)
         agent:
           acquisition:
