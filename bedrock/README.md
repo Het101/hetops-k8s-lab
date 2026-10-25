@@ -50,7 +50,11 @@ One minor at a time (kubeadm's rule), each one in its own `upgrades/<minor>.yml`
 1. CI rehearses every pending step on a throwaway cluster built at the step's starting version (`upgrade_from_vars`).
 2. Run it on staging (Calico tag first if Calico moves, then `kubernetes`). Pin staging's new versions in `group_vars/staging.yml`, so the drift check describes it as it now is.
 3. Run it on the lab in a window the owner picks (the lab runs every live site), with `-e upgrade_lab=true`.
+   A server already past a step skips it, so staging (ahead) never blocks the lab catching up.
 4. Move the values into `group_vars/k8s.yml` and take the pins out of `staging.yml`.
+
+Calico only ever moves up: a step never pulls a newer Calico back down. Today (25 Oct) both servers run
+Kubernetes 1.35.9, etcd 3.6.6, Calico 3.31.7. 1.35 is supported until 28 Feb 2027; 1.36 will need Calico 3.32.
 
 Before applying, each run snapshots etcd to `/var/lib/etcd/bedrock-before-<version>.db`, refuses while a chaos job is running, and afterwards checks the node is Ready on the new version and the API server still has every audit flag.
 

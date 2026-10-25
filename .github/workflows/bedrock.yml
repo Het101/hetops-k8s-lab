@@ -34,7 +34,7 @@ jobs:
       - name: The drift check's parser
         run: python3 -m unittest discover -s tests -v
       - name: Syntax check
-        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.33.yml --syntax-check && ansible-playbook patch.yml --syntax-check
+        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.35.yml --syntax-check && ansible-playbook patch.yml --syntax-check
       - name: ansible-lint
         run: ansible-lint site.yml upgrade.yml
 
@@ -107,11 +107,12 @@ jobs:
     needs: lint
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 40
-    # Every step still ahead of the lab, each from the version before it (its upgrade_from_vars).
+    # Every step still ahead of the lab, each from the version before it (its upgrade_from_vars). None since
+    # 25 Oct (lab and staging on 1.35), so the last step keeps upgrade.yml itself rehearsed; add the next one here.
     strategy:
       fail-fast: false
       matrix:
-        upgrade: [upgrades/1.33.yml, upgrades/1.34.yml, upgrades/1.35.yml]
+        upgrade: [upgrades/1.35.yml]
     name: upgrade (${{ matrix.upgrade }})
     env:
       UPGRADE: ${{ matrix.upgrade }}

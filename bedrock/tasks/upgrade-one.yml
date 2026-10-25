@@ -44,8 +44,9 @@
       register: upgrade_cni_before
       failed_when: false
 
+    # Only ever up: a server already past this step (staging, run ahead) keeps its newer Calico.
     - name: Calico moves to the new version
-      when: not upgrade_calico_image.stdout.endswith(':' ~ upgrade_calico_version)
+      when: (upgrade_calico_image.stdout.split(':')[-1] | regex_replace('^v', '')) is version(upgrade_calico_version[1:], '<')
       block:
         - name: Calico's manifest at the new version
           ansible.builtin.get_url:
@@ -101,6 +102,12 @@
     - name: Work out the minor version it is on
       ansible.builtin.set_fact:
         upgrade_from_minor: "{{ upgrade_from[1:].split('.')[:2] | join('.') }}"
+
+    # 25 Oct: staging, already on 1.35, failed the one-minor rule for the lab's 1.33 step, and as the canary
+    # (any_errors_fatal) it stopped the lab too. A server past this step has nothing to do in it.
+    - name: A server already past this step skips it
+      ansible.builtin.meta: end_host
+      when: (upgrade_from_minor.split('.')[1] | int) > (upgrade_kubernetes_minor.split('.')[1] | int)
 
     - name: One minor version at a time (kubeadm's rule)
       ansible.builtin.assert:
