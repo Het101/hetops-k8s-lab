@@ -82,6 +82,12 @@ spec:
           env:
           # Nothing leaves the server: no signal sharing with the CrowdSec network (and no community blocklist).
           - { name: DISABLE_ONLINE_API, value: "true" }
+          # Which certificate OUs may sign in (the chart's certificates use these). The image's start script writes them
+          # into config.yaml only from these variables; a fresh config has them by default, but the lab's config.yaml
+          # (on a persistent volume since 14 Oct) did not, so with TLS the LAPI refused its own agent ("OU [agent-ou]
+          # doesn't match expected OU []") and crash-looped (25 Oct). Set here, every start writes them.
+          - { name: AGENTS_ALLOWED_OU, value: agent-ou }
+          - { name: BOUNCERS_ALLOWED_OU, value: bouncer-ou }
           resources:
             requests: { cpu: 50m, memory: 128Mi }
             limits: { memory: 300Mi }
