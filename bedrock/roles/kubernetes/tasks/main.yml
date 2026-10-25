@@ -63,6 +63,9 @@
       - "kubelet={{ kubernetes_package_version }}"
       - "kubectl={{ kubernetes_package_version }}"
       - conntrack               # kubeadm preflight needs it (kube-proxy); the kube packages do not pull it in
+      # crictl (roles/audit restarts the API server with it). kubeadm depended on cri-tools up to 1.32.13 and
+      # stopped at 1.33.12: named here, so a new node gets it and apt's autoremove never takes it from an old one.
+      - cri-tools
     allow_downgrade: true      # a machine with a newer containerd.io (CI runners) is brought to ours
     allow_change_held_packages: true
 

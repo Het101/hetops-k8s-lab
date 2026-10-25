@@ -107,8 +107,14 @@ jobs:
     needs: lint
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 40
+    # Every step still ahead of the lab, each from the version before it (its upgrade_from_vars).
+    strategy:
+      fail-fast: false
+      matrix:
+        upgrade: [upgrades/1.33.yml, upgrades/1.34.yml, upgrades/1.35.yml]
+    name: upgrade (${{ matrix.upgrade }})
     env:
-      UPGRADE: upgrades/1.33.yml
+      UPGRADE: ${{ matrix.upgrade }}
     defaults:
       run:
         working-directory: bedrock

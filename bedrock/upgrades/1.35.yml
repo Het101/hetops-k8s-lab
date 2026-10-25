@@ -1,0 +1,11 @@
+# The upgrade to Kubernetes 1.35 (from 1.34), the last of three: supported until 28 Feb 2027.
+#   ansible-playbook upgrade.yml -e @upgrades/1.35.yml --tags kubernetes
+# 1.35's kubelet refuses cgroup v1 and containerd 1.x: Ubuntu 24.04 is cgroup v2, containerd is 2.2.3.
+upgrade_kubernetes_minor: "1.35"
+upgrade_kubernetes_package_version: "1.35.9-1.1"    # the latest 1.35 patch on pkgs.k8s.io, 25 Oct 2026
+upgrade_calico_version: v3.31.7                      # tested on 1.35; 1.36 will need Calico 3.32
+upgrade_etcd: true                                   # kubeadm 1.35: etcd 3.6.5 to 3.6.6
+upgrade_from_vars:
+  kubernetes_minor: "1.34"
+  kubernetes_package_version: "1.34.12-1.1"
+  cluster_calico_version: v3.31.7

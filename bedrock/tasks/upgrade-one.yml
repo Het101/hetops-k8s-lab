@@ -113,6 +113,15 @@
     - name: Upgrade the cluster
       when: upgrade_from != upgrade_to
       block:
+        # kubeadm's preflight runs a Job in kube-system and gives it 15 s. On a cluster that has not settled
+        # (CI, 25 Oct: built a minute earlier, Calico not serving yet) the Job's pod cannot start and kubeadm
+        # refuses. Never upgrade a cluster whose system pods are not all Ready anyway.
+        - name: Every kube-system pod is Ready (finished Jobs aside)
+          ansible.builtin.command: >-
+            kubectl -n kube-system wait pod --all --field-selector=status.phase!=Succeeded
+            --for=condition=Ready --timeout=300s
+          changed_when: false
+
         # An etcd snapshot first: the one thing a failed control-plane upgrade cannot rebuild from git.
         - name: Find the etcd pod
           ansible.builtin.command: kubectl -n kube-system get pods -l component=etcd -o jsonpath={.items[0].metadata.name}
