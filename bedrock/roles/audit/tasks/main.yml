@@ -38,7 +38,8 @@
         audit_arg_names: "{{ audit_api_server_args | map(attribute='name') | list }}"
         audit_volume_names: "{{ audit_api_server_volumes | map(attribute='name') | list }}"
         audit_args: "{{ (audit_current.apiServer.extraArgs | default([]) | rejectattr('name', 'in', audit_arg_names) | list) + audit_api_server_args }}"
-        audit_volumes: "{{ (audit_current.apiServer.extraVolumes | default([]) | rejectattr('name', 'in', audit_volume_names) | list) + audit_api_server_volumes }}"
+        audit_other_volumes: "{{ audit_current.apiServer.extraVolumes | default([]) | rejectattr('name', 'in', audit_volume_names) | list }}"
+        audit_volumes: "{{ audit_other_volumes + audit_api_server_volumes }}"
       ansible.builtin.set_fact:
         audit_cluster_config: "{{ audit_current }}"
         audit_wanted_config: "{{ audit_current | combine({'apiServer': {'extraArgs': audit_args, 'extraVolumes': audit_volumes}}, recursive=True) }}"
