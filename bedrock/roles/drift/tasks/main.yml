@@ -27,7 +27,7 @@
     kind: Secret
     namespace: timeline
     name: timeline-ingest
-    kubeconfig: "{{ audit_kubeconfig }}"
+    kubeconfig: "{{ drift_kubeconfig }}"
   register: drift_ingest
   no_log: true
 

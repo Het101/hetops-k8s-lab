@@ -8,4 +8,7 @@ drift_ansible_bin: "{{ ansible_playbook_python | dirname }}"
 # (CI: tests/ci-inventory.ini, so its runner never tries to reach the real fleet). Empty on the lab: the
 # default from ansible.cfg, the whole fleet. A systemd unit does not inherit the shell's environment.
 drift_inventory: "{{ lookup('ansible.builtin.env', 'ANSIBLE_INVENTORY') }}"
+# The control node user's kubeconfig, for reading the timeline's ingest token. Its own variable: until 25 Oct
+# this borrowed roles/audit's audit_kubeconfig, which only existed because both roles ran in one play.
+drift_kubeconfig: "{{ bedrock_kube_home }}/.kube/config"
 drift_on_calendar: "*-*-* 02:30:00"   # 02:30 UTC = 08:00 IST, after the 03:00 IST chaos self-test
