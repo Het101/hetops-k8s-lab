@@ -113,9 +113,7 @@
     - name: Upgrade the cluster
       when: upgrade_from != upgrade_to
       block:
-        # kubeadm's preflight runs a Job in kube-system and gives it 15 s. On a cluster that has not settled
-        # (CI, 25 Oct: built a minute earlier, Calico not serving yet) the Job's pod cannot start and kubeadm
-        # refuses. Never upgrade a cluster whose system pods are not all Ready anyway.
+        # Never upgrade a cluster whose system pods are not all Ready.
         - name: Every kube-system pod is Ready (finished Jobs aside)
           ansible.builtin.command: >-
             kubectl -n kube-system wait pod --all --field-selector=status.phase!=Succeeded
@@ -152,6 +150,14 @@
           ansible.builtin.apt:
             name: "kubeadm={{ upgrade_kubernetes_package_version }}"
             allow_change_held_packages: true
+
+        # kubeadm's preflight runs a Job in kube-system on the NEW version's pause image and gives it 15 s,
+        # pull included. 1.34 moved pause 3.10 -> 3.10.1: a node coming from 1.33 had to pull it inside those
+        # 15 s, and kubeadm refused when the pull was slow (CI, 25 Oct, intermittently). Pull every image of
+        # the new version first; it also shortens the control plane's restart (kubeadm's own advice).
+        - name: The new version's images are on the node
+          ansible.builtin.command: kubeadm config images pull --kubernetes-version {{ upgrade_to }}
+          changed_when: false
 
         - name: Kubeadm's plan
           ansible.builtin.command: kubeadm upgrade plan {{ upgrade_to }}
