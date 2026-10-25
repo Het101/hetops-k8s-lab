@@ -17,25 +17,24 @@ spec:
         spec:
           restartPolicy: Never
           automountServiceAccountToken: false
-          securityContext: { runAsNonRoot: true, runAsUser: 1000, seccompProfile: { type: RuntimeDefault } }
+          securityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000, seccompProfile: { type: RuntimeDefault } }   # fsGroup: reads the key (0440)
           containers:
           - name: bouncer
             image: node:22-alpine
             command: [node, /bouncer/bouncer.mjs]
             env:
-            # https since 25 Oct (the LAPI's mTLS). The API key still signs the bouncer in; Node trusts the chart's CA
-            # through NODE_EXTRA_CA_CERTS (ca.crt of the bouncer certificate cert-manager issues).
+            # https since 25 Oct (the LAPI's mTLS). The bouncer signs in with the bouncer certificate cert-manager issues
+            # (tls.crt, tls.key, ca.crt from crowdsec-bouncer-tls; renewed in place, read fresh on every run), not a key.
             - { name: LAPI_URL, value: https://crowdsec-service.crowdsec:8080 }
-            - { name: NODE_EXTRA_CA_CERTS, value: /etc/ssl/crowdsec-bouncer/ca.crt }
             - { name: ALLOW, value: "140.245.13.138" }   # this server: tests and status checks come from here
-            envFrom: [{ secretRef: { name: cloudflare-bouncer } }]   # LAPI_KEY, CF_TOKEN, CF_ZONE
+            envFrom: [{ secretRef: { name: cloudflare-bouncer } }]   # CF_TOKEN, CF_ZONE (LAPI_KEY unused since 25 Oct)
             resources:
               requests: { cpu: 10m, memory: 32Mi }
               limits: { memory: 96Mi }
             securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
             volumeMounts:
             - { name: script, mountPath: /bouncer }
-            - { name: lapi-ca, mountPath: /etc/ssl/crowdsec-bouncer, readOnly: true }
+            - { name: lapi-tls, mountPath: /etc/ssl/crowdsec-bouncer, readOnly: true }
           volumes:
           - { name: script, configMap: { name: cloudflare-bouncer } }
-          - { name: lapi-ca, secret: { secretName: crowdsec-bouncer-tls, items: [{ key: ca.crt, path: ca.crt }] } }
+          - { name: lapi-tls, secret: { secretName: crowdsec-bouncer-tls, defaultMode: 0440 } }
