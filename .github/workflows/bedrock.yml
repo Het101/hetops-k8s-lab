@@ -34,7 +34,7 @@ jobs:
       - name: The drift check's parser
         run: python3 -m unittest discover -s tests -v
       - name: Syntax check
-        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.32.yml --syntax-check && ansible-playbook patch.yml --syntax-check
+        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.33.yml --syntax-check && ansible-playbook patch.yml --syntax-check
       - name: ansible-lint
         run: ansible-lint site.yml upgrade.yml
 
@@ -101,13 +101,14 @@ jobs:
 
   # The next Kubernetes upgrade, rehearsed on a throwaway cluster before it runs on the lab server: build
   # today's cluster, run upgrade.yml (Calico, then Kubernetes), check it still works, then site.yml with the
-  # upgrade's values must change nothing (so group_vars can take them as they are).
+  # upgrade's values must change nothing (so group_vars can take them as they are). The runner is the
+  # inventory's lab group (tests/ci-inventory.ini), so it passes the lab's opt-in: upgrade_lab=true.
   upgrade:
     needs: lint
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 40
     env:
-      UPGRADE: upgrades/1.32.yml
+      UPGRADE: upgrades/1.33.yml
     defaults:
       run:
         working-directory: bedrock
@@ -125,7 +126,7 @@ jobs:
           ansible-playbook site.yml -e @before.json > build.log || { tail -n 40 build.log; exit 1; }
           kubectl version -o json | jq -r .serverVersion.gitVersion
       - name: Upgrade Calico
-        run: ansible-playbook upgrade.yml -e "@$UPGRADE" --tags calico
+        run: ansible-playbook upgrade.yml -e "@$UPGRADE" -e upgrade_lab=true --tags calico
       # The live server's state after the failed apply of 22 Oct: kubeadm already at the target, the cluster
       # not. The upgrade must finish from there.
       - name: Start from a failed apply (kubeadm upgraded, cluster not)
@@ -138,11 +139,11 @@ jobs:
       - name: Upgrade Kubernetes
         run: |
           start=$(date +%s)
-          ansible-playbook upgrade.yml -e "@$UPGRADE" --tags kubernetes
+          ansible-playbook upgrade.yml -e "@$UPGRADE" -e upgrade_lab=true --tags kubernetes
           echo "UPGRADE_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
       - name: Running it again changes nothing
         run: |
-          ansible-playbook upgrade.yml -e "@$UPGRADE" | tee again.log
+          ansible-playbook upgrade.yml -e "@$UPGRADE" -e upgrade_lab=true | tee again.log
           grep -E 'changed=0 +unreachable=0 +failed=0' again.log
       - name: The upgraded cluster works, and audit logging survived
         run: |

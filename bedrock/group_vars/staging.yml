@@ -12,3 +12,10 @@ ansible_ssh_private_key_file: ~/.ssh/bedrock_fleet
 bedrock_api_python: /opt/bedrock/venv/bin/python3     # made by roles/kubernetes, with the pinned client
 bedrock_kube_user: ubuntu
 bedrock_kube_home: /home/ubuntu
+
+# Staging runs ahead of the lab while an upgrade is rehearsed (upgrade.yml). These beat group_vars/k8s.yml
+# (a child group outranks its parent), so site.yml and the nightly drift check describe staging as it is.
+# When the lab catches up, these values move to k8s.yml and this block goes. 25 Oct: 1.33, on the way to 1.35.
+kubernetes_minor: "1.33"
+kubernetes_package_version: "1.33.13-1.1"
+cluster_calico_version: v3.31.7
