@@ -1,7 +1,14 @@
 # The staging group: servers the control node reaches over SSH. Variable precedence, lowest first:
-# role defaults < group_vars/all < group_vars/<group> < host_vars/<host> < -e on the command line.
+# role defaults < group_vars/all < group_vars/<parent group> (k8s) < group_vars/<group> < host_vars/<host> < -e.
 
 # How Ansible connects. The host key is pinned in the control node's known_hosts (checked against the
 # fingerprint seen from the owner's laptop before it was added), so an unknown key is refused, not trusted.
 ansible_user: ubuntu
 ansible_ssh_private_key_file: ~/.ssh/bedrock_fleet
+
+# Where Ansible's kubernetes.core modules run, and as whom (option A, 25 Oct): ON the staging node, never on
+# the controller. Over SSH the modules read the kubeconfig and manifests on the node itself; these say which.
+# NEVER controller lookups here (lookup() always runs on the controller): they would name the lab's files.
+bedrock_api_python: /opt/bedrock/venv/bin/python3     # made by roles/kubernetes, with the pinned client
+bedrock_kube_user: ubuntu
+bedrock_kube_home: /home/ubuntu

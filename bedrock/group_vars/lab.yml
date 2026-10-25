@@ -1,15 +1,9 @@
-# What the lab server really has, written down from discovery (Phase 1 step 3, Phase 3 step 1).
-# On the live server these describe it (check mode: changed=0); on a blank machine they build it.
+# The lab: production, and the control node itself (a local connection). Versions every Kubernetes node
+# shares live in group_vars/k8s.yml; this file holds only what is different about the lab.
 
-# The kube packages, held. Discovery, 21 Oct: 1.31.14. Upgraded 22 Oct with upgrade.yml -e @upgrades/1.32.yml
-# (rehearsed in CI first). Upgrading is one minor at a time: a new upgrades/<minor>.yml, then these values.
-kubernetes_minor: "1.32"
-kubernetes_package_version: "1.32.13-1.1"
-
-# The one containerd, shared with Coolify's Docker (namespaces moby and k8s.io). Held.
-containerd_package_version: "2.2.3-1~ubuntu.24.04~noble"
-
-# The cluster, as kubeadm-config and kube-system show it. Calico from the plain manifest (no Tigera
-# operator), whose default pool is this pod subnet. 3.27.0 until 22 Oct, then 3.29.7 (upgrades/1.32.yml).
-cluster_pod_subnet: 192.168.0.0/16
-cluster_calico_version: v3.29.7
+# Where Ansible's kubernetes.core modules run, and as whom (option A, 25 Oct: each node manages its own
+# cluster). The lab IS the controller, so: the controller's Python (Ansible's own venv has the Kubernetes
+# client) and the kubeconfig of the user running ansible-playbook, exactly as before the fleet.
+bedrock_api_python: "{{ ansible_playbook_python }}"
+bedrock_kube_user: "{{ lookup('ansible.builtin.env', 'USER') }}"
+bedrock_kube_home: "{{ lookup('ansible.builtin.env', 'HOME') }}"
