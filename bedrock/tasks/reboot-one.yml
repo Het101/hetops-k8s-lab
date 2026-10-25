@@ -1,0 +1,125 @@
+# One server's reboot, imported by every play in reboot.yml. Two halves:
+#   reboot  - only when a reboot is pending (or reboot_force): refuse under a chaos run, save the list of running
+#             containers to /var/tmp (it survives the boot), then reboot.
+#   verify  - the API answers, every pod is Ready, every saved container is up again. Runs right after a reboot
+#             over SSH; on the control node (which cannot wait for its own reboot) run it again once it is back:
+#             ansible-playbook reboot.yml --tags verify -e reboot_lab=true
+
+- name: Look for a pending reboot
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_flag
+
+- name: Decide whether this server reboots
+  ansible.builtin.set_fact:
+    reboot_now: "{{ reboot_flag.stat.exists or (reboot_force | default(false) | bool) }}"
+
+- name: Say why (or why not)
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: {{ reboot_why }}"
+  vars:
+    reboot_why: >-
+      {{ 'reboot pending' if reboot_flag.stat.exists
+         else ('no reboot pending; rebooting anyway (reboot_force)' if reboot_now | bool
+         else 'no reboot pending; nothing to do') }}
+
+- name: The reboot
+  when: reboot_now | bool
+  block:
+    # 21:30 UTC is the nightly chaos self-test; a reboot under a running experiment fails it (22 Oct).
+    - name: Read the chaos lab's running jobs
+      ansible.builtin.command: kubectl -n chaos get jobs -o jsonpath={.items[?(@.status.active)].metadata.name}
+      register: reboot_chaos_jobs
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: No chaos experiment is running
+      ansible.builtin.assert:
+        that: reboot_chaos_jobs.stdout | length == 0
+        fail_msg: "A chaos job is running ({{ reboot_chaos_jobs.stdout }}); the self-test runs at 21:30 UTC. Wait for it."
+        quiet: true
+
+    - name: Save the running containers, for verify to compare against after the boot
+      ansible.builtin.shell: >-
+        set -o pipefail; docker ps --format '{{ "{{" }}.Names{{ "}}" }}' | sort > /var/tmp/bedrock-containers-before-reboot
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    # The module records the boot time, reboots, then waits until SSH answers AND the boot time has changed.
+    - name: Reboot, and wait for SSH
+      ansible.builtin.reboot:
+        reboot_timeout: 900
+        msg: "Bedrock reboot.yml"
+      register: reboot_result
+      when: ansible_connection | default('ssh') != 'local'
+
+    # Ansible runs on this server: it cannot wait for its own reboot. Schedule it, finish the run, verify later.
+    - name: Schedule the control node's reboot in 60 s
+      ansible.builtin.command: systemd-run --on-active=60 --unit=bedrock-reboot /bin/systemctl reboot
+      changed_when: true
+      when: ansible_connection | default('ssh') == 'local'
+
+    - name: Say what happens next on the control node
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} reboots in 60 s. When it is back (SSH answers), run from ~/hetops-k8s-lab/bedrock:
+          ansible-playbook reboot.yml --tags verify -e reboot_lab=true
+      when: ansible_connection | default('ssh') == 'local'
+
+    - name: Stop here on the control node (verify runs after the boot)
+      ansible.builtin.meta: end_host
+      when: ansible_connection | default('ssh') == 'local'
+
+# ── verify ──────────────────────────────────────────────────────────────────────────────────────────
+- name: The cluster and the containers came back
+  tags: [verify]
+  block:
+    - name: The API server answers
+      ansible.builtin.command: kubectl get --raw /readyz
+      register: reboot_readyz
+      until: reboot_readyz.stdout == 'ok'
+      retries: 60
+      delay: 5
+      changed_when: false
+      check_mode: false
+
+    # Finished (and failed) Job pods aside, every pod Ready: the cluster is whole again. Staging took 69 s.
+    - name: Every pod is Ready
+      ansible.builtin.command: >-
+        kubectl wait pod --all-namespaces --all --field-selector=status.phase!=Succeeded,status.phase!=Failed
+        --for=condition=Ready --timeout=600s
+      changed_when: false
+      check_mode: false
+
+    - name: Read the container list saved before the reboot
+      ansible.builtin.slurp:
+        src: /var/tmp/bedrock-containers-before-reboot
+      register: reboot_saved
+      failed_when: false
+
+    - name: Every container that was up before the reboot is up again
+      ansible.builtin.command: docker ps --format '{{ "{{" }}.Names{{ "}}" }}'
+      register: reboot_containers
+      vars:
+        reboot_before: "{{ (reboot_saved.content | default('') | b64decode).split() }}"
+      until: (reboot_before | difference(reboot_containers.stdout_lines)) | length == 0
+      retries: 30
+      delay: 10
+      changed_when: false
+      check_mode: false
+      when: reboot_saved.content is defined
+
+    # Checked: drop the list, so a later verify never compares against a stale one.
+    - name: Forget the saved list
+      ansible.builtin.file:
+        path: /var/tmp/bedrock-containers-before-reboot
+        state: absent
+      when: reboot_saved.content is defined
+
+    - name: Say how it went
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: up since {{ ansible_facts['uptime_seconds'] | default('?') }} s ago;
+          API ready, every pod Ready{{ ', every saved container up' if reboot_saved.content is defined else '' }}.
