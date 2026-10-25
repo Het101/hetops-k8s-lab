@@ -16,7 +16,12 @@
 
 - name: Say why (or why not)
   ansible.builtin.debug:
-    msg: "{{ inventory_hostname }}: {{ 'reboot pending' if reboot_flag.stat.exists else ('no reboot pending; rebooting anyway (reboot_force)' if reboot_now else 'no reboot pending; nothing to do') }}"
+    msg: "{{ inventory_hostname }}: {{ reboot_why }}"
+  vars:
+    reboot_why: >-
+      {{ 'reboot pending' if reboot_flag.stat.exists
+         else ('no reboot pending; rebooting anyway (reboot_force)' if reboot_now | bool
+         else 'no reboot pending; nothing to do') }}
 
 - name: The reboot
   when: reboot_now | bool
