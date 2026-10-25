@@ -20,12 +20,13 @@ Variable precedence, lowest first: role defaults < `group_vars/all` < `group_var
 | [`site.yml`](site.yml) | the whole fleet, from the OS up. `--check --diff` describes the live servers (`changed=0`); on a blank machine it builds one | all → `k8s` → `lab` |
 | [`patch.yml`](patch.yml) | every apt update (held packages stay held) | staging, then the lab with `-e patch_lab=true` |
 | [`upgrade.yml`](upgrade.yml) | one Calico or Kubernetes step, values from `upgrades/<minor>.yml` | staging, then the lab with `-e upgrade_lab=true` |
+| [`reboot.yml`](reboot.yml) | reboots a server with a reboot pending (or any, with `-e reboot_force=true`), then waits until every pod is Ready | staging, then the lab with `-e reboot_lab=true` |
 
 Roles: `common` (every server: SSH hardening, unattended-upgrades, reboot report) · `base`, `kubernetes`, `cluster`, `audit` (every Kubernetes node) · `drift` (the control node: the nightly check).
 
 ## Staging first
 
-`patch.yml` and `upgrade.yml` run staging as a canary: one server at a time, and any failure there (`any_errors_fatal`) ends the run before the lab play starts. The lab play skips itself unless its opt-in is passed. So the safe default of every command is "staging only".
+`patch.yml`, `upgrade.yml` and `reboot.yml` run staging as a canary: one server at a time, and any failure there (`any_errors_fatal`) ends the run before the lab play starts. The lab play skips itself unless its opt-in is passed. So the safe default of every command is "staging only".
 
 ```bash
 ansible-playbook site.yml --check --diff                                   # both servers: is anything different from git?

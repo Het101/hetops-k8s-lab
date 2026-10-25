@@ -1,0 +1,68 @@
+# One server's reboot, imported by every play in reboot.yml. Reboots only when a reboot is pending, or
+# when reboot_force is set; then waits until the cluster is whole again and says how long that took.
+
+- name: Look for a pending reboot
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_flag
+
+- name: Decide whether this server reboots
+  ansible.builtin.set_fact:
+    reboot_now: "{{ reboot_flag.stat.exists or (reboot_force | default(false) | bool) }}"
+
+- name: Say why (or why not)
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: {{ 'reboot pending' if reboot_flag.stat.exists else ('no reboot pending; rebooting anyway (reboot_force)' if reboot_now else 'no reboot pending; nothing to do') }}"
+
+- name: The reboot
+  when: reboot_now | bool
+  block:
+    # 21:30 UTC is the nightly chaos self-test; a reboot under a running experiment fails it (22 Oct).
+    - name: Read the chaos lab's running jobs
+      ansible.builtin.command: kubectl -n chaos get jobs -o jsonpath={.items[?(@.status.active)].metadata.name}
+      register: reboot_chaos_jobs
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: No chaos experiment is running
+      ansible.builtin.assert:
+        that: reboot_chaos_jobs.stdout | length == 0
+        fail_msg: "A chaos job is running ({{ reboot_chaos_jobs.stdout }}); the self-test runs at 21:30 UTC. Wait for it."
+        quiet: true
+
+    - name: Note the containers that are up (the lab play checks they all come back)
+      ansible.builtin.command: docker ps --format '{{ "{{" }}.Names{{ "}}" }}'
+      register: reboot_containers_before
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    # The module records the boot time, reboots, then waits until SSH answers AND the boot time has changed.
+    - name: Reboot, and wait for SSH
+      ansible.builtin.reboot:
+        reboot_timeout: 900
+        msg: "Bedrock reboot.yml"
+      register: reboot_result
+
+    - name: The API server answers
+      ansible.builtin.command: kubectl get --raw /readyz
+      register: reboot_readyz
+      until: reboot_readyz.stdout == 'ok'
+      retries: 60
+      delay: 5
+      changed_when: false
+      check_mode: false
+
+    # Finished (and failed) Job pods aside, every pod Ready: the cluster is whole again. 10 minutes is generous (staging: 69 s).
+    - name: Every pod is Ready
+      ansible.builtin.command: >-
+        kubectl wait pod --all-namespaces --all --field-selector=status.phase!=Succeeded,status.phase!=Failed
+        --for=condition=Ready --timeout=600s
+      changed_when: false
+      check_mode: false
+
+    - name: Say how long it took
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: SSH back after {{ reboot_result.elapsed }} s; every pod Ready."
+      when: reboot_result.elapsed is defined

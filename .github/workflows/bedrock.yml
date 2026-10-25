@@ -34,9 +34,9 @@ jobs:
       - name: The drift check's parser
         run: python3 -m unittest discover -s tests -v
       - name: Syntax check
-        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.35.yml --syntax-check && ansible-playbook patch.yml --syntax-check
+        run: ansible-playbook site.yml --syntax-check && ansible-playbook upgrade.yml -e @upgrades/1.35.yml --syntax-check && ansible-playbook patch.yml --syntax-check && ansible-playbook reboot.yml --syntax-check
       - name: ansible-lint
-        run: ansible-lint site.yml upgrade.yml
+        run: ansible-lint site.yml upgrade.yml patch.yml reboot.yml
 
   # Phase 3: a blank arm64 Ubuntu 24.04 machine, the same playbook as the live server, a one-node
   # cluster at the end. Then a second run must change nothing (idempotence).

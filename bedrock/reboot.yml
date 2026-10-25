@@ -1,0 +1,56 @@
+# Reboot the fleet, staging first, and prove everything came back on its own. Bedrock's other playbooks
+# never reboot (roles/common only reports a pending one); this is the one that does, in a window the owner picks.
+#
+#   ansible-playbook reboot.yml                          staging, if it has a reboot pending
+#   ansible-playbook reboot.yml -e reboot_force=true     staging, pending or not (a boot test)
+#   ansible-playbook reboot.yml -e reboot_lab=true       staging, then the lab (only if staging came back)
+#
+# Why the lab is opt-in: it runs every live site (Coolify), so its reboot is a few minutes of downtime.
+# Rehearsed by hand on staging on 25 Oct: SSH back in 37 s, every pod Ready 69 s from boot, site.yml changed=0.
+
+# Staging is the canary: if it does not come back healthy, the run stops and the lab is never touched.
+- name: Reboot staging
+  hosts: staging
+  become: true
+  serial: 1
+  max_fail_percentage: 0
+  any_errors_fatal: true
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  tasks:
+    - name: Reboot this server
+      ansible.builtin.import_tasks: tasks/reboot-one.yml
+
+- name: Reboot the lab
+  hosts: lab
+  become: true
+  serial: 1
+  max_fail_percentage: 0
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  tasks:
+    - name: Skip the lab unless asked
+      ansible.builtin.meta: end_host
+      when: not (reboot_lab | default(false) | bool)
+
+    - name: Reboot this server
+      ansible.builtin.import_tasks: tasks/reboot-one.yml
+
+    # The lab also runs every live site: Docker must be back, with every container that was up before.
+    - name: Docker is running
+      ansible.builtin.systemd_service:
+        name: docker
+        state: started
+      check_mode: true             # a check, never a start: if it were stopped, that is the finding
+      register: reboot_docker
+      failed_when: reboot_docker is changed
+
+    - name: Every site container that was up before the reboot is up again
+      ansible.builtin.command: docker ps --format '{{ "{{" }}.Names{{ "}}" }}'
+      register: reboot_containers_after
+      until: (reboot_containers_before.stdout_lines | difference(reboot_containers_after.stdout_lines)) | length == 0
+      retries: 30
+      delay: 10
+      changed_when: false
+      check_mode: false
+      when: reboot_containers_before is defined and reboot_containers_before.stdout_lines is defined
