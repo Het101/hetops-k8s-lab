@@ -18,6 +18,7 @@
   register: upgrade_chaos_jobs
   changed_when: false
   failed_when: false
+  check_mode: false            # a read; skipped in --check it would always find "no jobs"
   tags: [always]
 
 - name: No chaos self-test is running
@@ -230,6 +231,7 @@
       retries: 36
       delay: 5
       changed_when: false
+      check_mode: false        # a read; skipped in --check it retried 36 times on empty output (25 Oct)
 
     # 22 Oct: Argo CD kept the old cluster version (1.31.14) for five hours after the upgrade. Its cached version
     # refreshes only on a 24 h resync, so every Helm chart rendered for 1.31, and a chart needing 1.32 (NGINX
