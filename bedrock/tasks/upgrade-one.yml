@@ -18,6 +18,7 @@
   register: upgrade_chaos_jobs
   changed_when: false
   failed_when: false
+  check_mode: false            # a read; skipped in --check it would always find "no jobs"
   tags: [always]
 
 - name: No chaos self-test is running
@@ -35,6 +36,7 @@
       ansible.builtin.command: kubectl -n kube-system get ds calico-node -o jsonpath={.spec.template.spec.containers[0].image}
       register: upgrade_calico_image
       changed_when: false
+      check_mode: false            # a read: --check needs the real version to say what would change
 
     # On the lab server this file chains calico, portmap, bandwidth, linkerd-cni. A machine without it
     # (CI's throwaway cluster names it otherwise) simply has no Linkerd chain to wait for.
@@ -44,8 +46,9 @@
       register: upgrade_cni_before
       failed_when: false
 
+    # Only ever up: a server already past this step (staging, run ahead) keeps its newer Calico.
     - name: Calico moves to the new version
-      when: not upgrade_calico_image.stdout.endswith(':' ~ upgrade_calico_version)
+      when: (upgrade_calico_image.stdout.split(':')[-1] | regex_replace('^v', '')) is version(upgrade_calico_version[1:], '<')
       block:
         - name: Calico's manifest at the new version
           ansible.builtin.get_url:
@@ -101,6 +104,12 @@
     - name: Work out the minor version it is on
       ansible.builtin.set_fact:
         upgrade_from_minor: "{{ upgrade_from[1:].split('.')[:2] | join('.') }}"
+
+    # 25 Oct: staging, already on 1.35, failed the one-minor rule for the lab's 1.33 step, and as the canary
+    # (any_errors_fatal) it stopped the lab too. A server past this step has nothing to do in it.
+    - name: A server already past this step skips it
+      ansible.builtin.meta: end_host
+      when: (upgrade_from_minor.split('.')[1] | int) > (upgrade_kubernetes_minor.split('.')[1] | int)
 
     - name: One minor version at a time (kubeadm's rule)
       ansible.builtin.assert:
@@ -222,6 +231,7 @@
       retries: 36
       delay: 5
       changed_when: false
+      check_mode: false        # a read; skipped in --check it retried 36 times on empty output (25 Oct)
 
     # 22 Oct: Argo CD kept the old cluster version (1.31.14) for five hours after the upgrade. Its cached version
     # refreshes only on a 24 h resync, so every Helm chart rendered for 1.31, and a chart needing 1.32 (NGINX
