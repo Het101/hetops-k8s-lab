@@ -23,13 +23,19 @@ spec:
             image: node:22-alpine
             command: [node, /bouncer/bouncer.mjs]
             env:
-            - { name: LAPI_URL, value: http://crowdsec-service.crowdsec:8080 }
+            # https since 25 Oct (the LAPI's mTLS). The API key still signs the bouncer in; Node trusts the chart's CA
+            # through NODE_EXTRA_CA_CERTS (ca.crt of the bouncer certificate cert-manager issues).
+            - { name: LAPI_URL, value: https://crowdsec-service.crowdsec:8080 }
+            - { name: NODE_EXTRA_CA_CERTS, value: /etc/ssl/crowdsec-bouncer/ca.crt }
             - { name: ALLOW, value: "140.245.13.138" }   # this server: tests and status checks come from here
             envFrom: [{ secretRef: { name: cloudflare-bouncer } }]   # LAPI_KEY, CF_TOKEN, CF_ZONE
             resources:
               requests: { cpu: 10m, memory: 32Mi }
               limits: { memory: 96Mi }
             securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
-            volumeMounts: [{ name: script, mountPath: /bouncer }]
+            volumeMounts:
+            - { name: script, mountPath: /bouncer }
+            - { name: lapi-ca, mountPath: /etc/ssl/crowdsec-bouncer, readOnly: true }
           volumes:
           - { name: script, configMap: { name: cloudflare-bouncer } }
+          - { name: lapi-ca, secret: { secretName: crowdsec-bouncer-tls, items: [{ key: ca.crt, path: ca.crt }] } }
