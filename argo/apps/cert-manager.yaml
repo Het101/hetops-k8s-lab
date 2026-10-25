@@ -1,0 +1,34 @@
+# cert-manager (security track): issues and renews TLS certificates inside the cluster. First user: CrowdSec's mTLS
+# between the agent and its LAPI, so the agent proves who it is with a certificate instead of registering by pod
+# name, which failed after every reboot (21 and 25 Oct). Rehearsed on staging first (25 Oct, journal Part 10).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }   # before crowdsec (0), whose Certificates need these CRDs
+spec:
+  project: security
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.21.3                    # pinned; drops trust in the compromised eMudhra CA ("all users should upgrade")
+    helm:
+      releaseName: cert-manager
+      valuesObject:
+        crds:
+          enabled: true
+          keep: true                           # deleting this app must never delete every Certificate in the cluster
+        global:
+          leaderElection: { namespace: cert-manager }   # not kube-system: the project deploys only into its own namespaces
+        startupapicheck: { enabled: false }    # a Helm post-install hook; Argo's own health checks cover it
+        resources: { requests: { cpu: 10m, memory: 64Mi }, limits: { memory: 128Mi } }
+        webhook:
+          resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 64Mi } }
+        cainjector:
+          resources: { requests: { cpu: 10m, memory: 64Mi }, limits: { memory: 128Mi } }
+  destination: { server: https://kubernetes.default.svc, namespace: cert-manager }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry: { limit: 5, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }
