@@ -5,15 +5,22 @@ metadata:
   namespace: argocd
   annotations: { argocd.argoproj.io/sync-wave: "-1" }
 spec:
-  description: Falco (IDS) and CrowdSec (IPS) for the chaos lab (SIEM track)
+  description: Falco (IDS), CrowdSec (IPS) and cert-manager (their TLS) for the chaos lab (SIEM track)
   sourceRepos:
   - https://github.com/Het101/hetops-k8s-lab.git
   - https://falcosecurity.github.io/charts
   - https://crowdsecurity.github.io/helm-charts
+  - https://charts.jetstack.io                        # cert-manager (25 Oct)
   destinations:
   - { server: https://kubernetes.default.svc, namespace: falco }
   - { server: https://kubernetes.default.svc, namespace: crowdsec }
+  - { server: https://kubernetes.default.svc, namespace: cert-manager }
   clusterResourceWhitelist:
   - { group: "", kind: Namespace }                     # CreateNamespace + managedNamespaceMetadata (T2: refused without it)
   - { group: rbac.authorization.k8s.io, kind: ClusterRole }
   - { group: rbac.authorization.k8s.io, kind: ClusterRoleBinding }
+  # cert-manager (25 Oct): its CRDs, its admission webhooks, and the issuer CrowdSec's chart makes for its own CA.
+  - { group: apiextensions.k8s.io, kind: CustomResourceDefinition }
+  - { group: admissionregistration.k8s.io, kind: MutatingWebhookConfiguration }
+  - { group: admissionregistration.k8s.io, kind: ValidatingWebhookConfiguration }
+  - { group: cert-manager.io, kind: ClusterIssuer }
