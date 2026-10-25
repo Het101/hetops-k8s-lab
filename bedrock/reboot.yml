@@ -4,6 +4,10 @@
 #   ansible-playbook reboot.yml                          staging, if it has a reboot pending
 #   ansible-playbook reboot.yml -e reboot_force=true     staging, pending or not (a boot test)
 #   ansible-playbook reboot.yml -e reboot_lab=true       staging, then the lab (only if staging came back)
+#   ansible-playbook reboot.yml --tags verify -e reboot_lab=true    after the lab is back: did everything return?
+#
+# The lab is the control node: Ansible runs on it, so it cannot reboot itself and wait. Its play schedules the
+# reboot 60 s out and ends; the verify run above checks it afterwards (tasks/reboot-one.yml).
 #
 # Why the lab is opt-in: it runs every live site (Coolify), so its reboot is a few minutes of downtime.
 # Rehearsed by hand on staging on 25 Oct: SSH back in 37 s, every pod Ready 69 s from boot, site.yml changed=0.
@@ -32,25 +36,7 @@
     - name: Skip the lab unless asked
       ansible.builtin.meta: end_host
       when: not (reboot_lab | default(false) | bool)
+      tags: [always]
 
     - name: Reboot this server
       ansible.builtin.import_tasks: tasks/reboot-one.yml
-
-    # The lab also runs every live site: Docker must be back, with every container that was up before.
-    - name: Docker is running
-      ansible.builtin.systemd_service:
-        name: docker
-        state: started
-      check_mode: true             # a check, never a start: if it were stopped, that is the finding
-      register: reboot_docker
-      failed_when: reboot_docker is changed
-
-    - name: Every site container that was up before the reboot is up again
-      ansible.builtin.command: docker ps --format '{{ "{{" }}.Names{{ "}}" }}'
-      register: reboot_containers_after
-      until: (reboot_containers_before.stdout_lines | difference(reboot_containers_after.stdout_lines)) | length == 0
-      retries: 30
-      delay: 10
-      changed_when: false
-      check_mode: false
-      when: reboot_containers_before is defined and reboot_containers_before.stdout_lines is defined
