@@ -30,7 +30,8 @@ spec:
           enabled: true
           certManager:
             # Chart 0.24.2 bug: the agent and bouncer Certificates always render "secretTemplate:", empty = null, which
-            # cert-manager rejects. A label makes every template render a real object. Drop when the chart is fixed.
+            # cert-manager rejects. A label makes every template render a real object. Drop when the chart is fixed:
+            # https://github.com/crowdsecurity/helm-charts/issues/371 (reported 25 Oct).
             secretTemplate:
               labels: { app.kubernetes.io/part-of: crowdsec }
         config:
@@ -66,6 +67,11 @@ spec:
               flush:
                 agents_autodelete:
                   login_password: 15m
+                  cert: 1h
+                # The bouncer signs in by certificate (platform/crowdsec-bouncer): the LAPI re-creates its entry from the
+                # certificate on every run, so stale "CrowdSec Bouncer@<pod IP>" entries are safe to drop. (Never api_key
+                # here: a key is valid only while one of its entries exists, and this deletes them all when stale.)
+                bouncers_autodelete:
                   cert: 1h
         container_runtime: containerd          # kubeadm uses containerd, not docker (log line format)
         agent:
