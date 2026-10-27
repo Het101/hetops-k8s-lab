@@ -1,18 +1,18 @@
 # Patch the fleet: every package update apt offers (held packages stay held), one server at a time,
-# staging first. Security updates already install themselves daily (roles/common: unattended-upgrades);
+# staging and ops first. Security updates already install themselves daily (roles/common: unattended-upgrades);
 # this is for everything else, in a window the owner picks.
 #
 #   ansible-playbook patch.yml --check                  what would update, on staging
 #   ansible-playbook patch.yml                          patch staging
-#   ansible-playbook patch.yml -e patch_lab=true        staging, then the lab (only if staging passed)
+#   ansible-playbook patch.yml -e patch_lab=true        staging and ops, then the lab (only if staging passed)
 #
 # Why the lab is opt-in: an update to docker-ce or containerd restarts Docker, and every live site
 # (Coolify) restarts with it. The kube packages and containerd are held, so they never move here; a
 # Kubernetes upgrade is upgrade.yml's job.
 
 # Staging is the canary: if anything fails here, the play stops and the lab is never touched.
-- name: Patch staging
-  hosts: staging
+- name: Patch staging and ops
+  hosts: staging:ops
   become: true
   serial: 1                        # one server at a time, once the group has more than one
   max_fail_percentage: 0           # one failure stops the rest

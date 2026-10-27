@@ -1,9 +1,9 @@
-# Reboot the fleet, staging first, and prove everything came back on its own. Bedrock's other playbooks
+# Reboot the fleet, staging and ops first, and prove everything came back on its own. Bedrock's other playbooks
 # never reboot (roles/common only reports a pending one); this is the one that does, in a window the owner picks.
 #
 #   ansible-playbook reboot.yml                          staging, if it has a reboot pending
 #   ansible-playbook reboot.yml -e reboot_force=true     staging, pending or not (a boot test)
-#   ansible-playbook reboot.yml -e reboot_lab=true       staging, then the lab (only if staging came back)
+#   ansible-playbook reboot.yml -e reboot_lab=true       staging and ops, then the lab (only if they came back)
 #   ansible-playbook reboot.yml --tags verify -e reboot_lab=true    after the lab is back: did everything return?
 #
 # The lab is the control node: Ansible runs on it, so it cannot reboot itself and wait. Its play schedules the
@@ -13,8 +13,8 @@
 # Rehearsed by hand on staging on 25 Oct: SSH back in 37 s, every pod Ready 69 s from boot, site.yml changed=0.
 
 # Staging is the canary: if it does not come back healthy, the run stops and the lab is never touched.
-- name: Reboot staging
-  hosts: staging
+- name: Reboot staging and ops
+  hosts: staging:ops
   become: true
   serial: 1
   max_fail_percentage: 0
