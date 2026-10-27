@@ -8,25 +8,26 @@ Ansible for everything under Kubernetes, on every server: the OS, SSH, packages,
 |---|---|---|---|
 | `my-workspace` (140.245.13.138) | `lab` | local connection | production + the control node |
 | `vm2` (140.238.224.158) | `staging` | SSH as `ubuntu` with `~/.ssh/bedrock_fleet`, pinned host key | gets every change first |
+| `hetops-3` (130.210.37.122) | `ops` | SSH as `ubuntu` with `~/.ssh/bedrock_fleet`, pinned host key | the ops cluster: tools the lab relies on, its own Argo CD (`clusters/ops/`) |
 
-`k8s` is the parent of both groups: [`group_vars/k8s.yml`](group_vars/k8s.yml) holds the versions every Kubernetes node shares. The fleet key is accepted only from the lab's IP (`from="140.245.13.138"` in vm2's `authorized_keys`).
+`k8s` is the parent of all three groups: [`group_vars/k8s.yml`](group_vars/k8s.yml) holds the versions every Kubernetes node shares. The fleet key is accepted only from the lab's IP (`from="140.245.13.138"` in vm2's `authorized_keys`).
 
-Variable precedence, lowest first: role defaults < `group_vars/all` < `group_vars/k8s.yml` < `group_vars/lab.yml` / `staging.yml` < `host_vars/` < `-e`.
+Variable precedence, lowest first: role defaults < `group_vars/all` < `group_vars/k8s.yml` < `group_vars/lab.yml` / `staging.yml` / `ops.yml` < `host_vars/` < `-e`.
 
 ## Playbooks
 
 | Playbook | What | Hosts |
 |---|---|---|
-| [`site.yml`](site.yml) | the whole fleet, from the OS up. `--check --diff` describes the live servers (`changed=0`); on a blank machine it builds one | all → `k8s` → `lab` |
-| [`patch.yml`](patch.yml) | every apt update (held packages stay held) | staging, then the lab with `-e patch_lab=true` |
-| [`upgrade.yml`](upgrade.yml) | one Calico or Kubernetes step, values from `upgrades/<minor>.yml` | staging, then the lab with `-e upgrade_lab=true` |
-| [`reboot.yml`](reboot.yml) | reboots a server with a reboot pending (or any, with `-e reboot_force=true`), then waits until every pod is Ready | staging, then the lab with `-e reboot_lab=true` |
+| [`site.yml`](site.yml) | the whole fleet, from the OS up. `--check --diff` describes the live servers (`changed=0`); on a blank machine it builds one | all → `k8s` → `ops` → `lab` |
+| [`patch.yml`](patch.yml) | every apt update (held packages stay held) | staging and ops, then the lab with `-e patch_lab=true` |
+| [`upgrade.yml`](upgrade.yml) | one Calico or Kubernetes step, values from `upgrades/<minor>.yml` | staging and ops, then the lab with `-e upgrade_lab=true` |
+| [`reboot.yml`](reboot.yml) | reboots a server with a reboot pending (or any, with `-e reboot_force=true`), then waits until every pod is Ready | staging and ops, then the lab with `-e reboot_lab=true` |
 
-Roles: `common` (every server: SSH hardening, unattended-upgrades, reboot report) · `base`, `kubernetes`, `cluster`, `audit` (every Kubernetes node) · `drift` (the control node: the nightly check).
+Roles: `common` (every server: SSH hardening, unattended-upgrades, reboot report) · `base`, `kubernetes`, `cluster`, `audit` (every Kubernetes node) · `drift` (the control node: the nightly check) · `tailscale`, `argocd` (the ops cluster: the private link, and its own Argo CD).
 
-## Staging first
+## Staging and ops first
 
-`patch.yml`, `upgrade.yml` and `reboot.yml` run staging as a canary: one server at a time, and any failure there (`any_errors_fatal`) ends the run before the lab play starts. The lab play skips itself unless its opt-in is passed. So the safe default of every command is "staging only".
+`patch.yml`, `upgrade.yml` and `reboot.yml` run staging and ops as a canary: one server at a time, and any failure there (`any_errors_fatal`) ends the run before the lab play starts. The lab play skips itself unless its opt-in is passed. So the safe default of every command is "staging and ops only".
 
 ```bash
 ansible-playbook site.yml --check --diff                                   # both servers: is anything different from git?

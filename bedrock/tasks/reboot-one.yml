@@ -40,12 +40,18 @@
         fail_msg: "A chaos job is running ({{ reboot_chaos_jobs.stdout }}); the self-test runs at 21:30 UTC. Wait for it."
         quiet: true
 
+    - name: Is Docker on this server?
+      ansible.builtin.stat:
+        path: /usr/bin/docker
+      register: reboot_docker
+
     - name: Save the running containers, for verify to compare against after the boot
       ansible.builtin.shell: >-
         set -o pipefail; docker ps --format '{{ "{{" }}.Names{{ "}}" }}' | sort > /var/tmp/bedrock-containers-before-reboot
       args:
         executable: /bin/bash
       changed_when: true
+      when: reboot_docker.stat.exists
 
     # The module records the boot time, reboots, then waits until SSH answers AND the boot time has changed.
     - name: Reboot, and wait for SSH

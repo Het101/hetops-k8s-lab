@@ -1,0 +1,13 @@
+# The ops cluster (hetops-3, 27 Oct): reached from the control node over SSH, like staging. These five settings
+# repeat staging.yml's on purpose, so staging's files stay untouched; precedence is the same (k8s < ops).
+
+# How Ansible connects. The host key is pinned in the control node's known_hosts (checked against the
+# fingerprint seen from the owner's laptop on 26 Oct before it was added), so an unknown key is refused.
+ansible_user: ubuntu
+ansible_ssh_private_key_file: ~/.ssh/bedrock_fleet
+
+# Where kubernetes.core modules run, and as whom (option A): ON the ops node, never on the controller.
+# NEVER controller lookups here (lookup() always runs on the controller): they would name the lab's files.
+bedrock_api_python: /opt/bedrock/venv/bin/python3     # made by roles/kubernetes, with the pinned client
+bedrock_kube_user: ubuntu
+bedrock_kube_home: /home/ubuntu

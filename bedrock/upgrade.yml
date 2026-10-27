@@ -1,8 +1,8 @@
-# Kubernetes and Calico upgrades across the fleet, one step at a time, staging first, with the values from
+# Kubernetes and Calico upgrades across the fleet, one step at a time, staging and ops first, with the values from
 # upgrades/<minor>.yml:
 #   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags calico                       staging
 #   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags kubernetes                   staging
-#   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags kubernetes -e upgrade_lab=true   then the lab
+#   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags kubernetes -e upgrade_lab=true   staging and ops, then the lab
 # Each step does nothing if the server is already there, so it is safe to run twice. Rehearsed in CI on a
 # throwaway cluster (job: upgrade), then on staging, before it ever runs on the lab server.
 #
@@ -11,8 +11,8 @@
 # k8s.yml and the pins come out of staging.yml.
 
 # Staging is the canary: if anything fails here, the run stops and the lab is never touched.
-- name: Upgrade staging
-  hosts: staging
+- name: Upgrade staging and ops
+  hosts: staging:ops
   become: true
   serial: 1
   max_fail_percentage: 0
