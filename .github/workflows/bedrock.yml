@@ -95,6 +95,11 @@ jobs:
           want=$(sed -n 's/^tailscale_version: "\(.*\)"/\1/p' roles/tailscale/defaults/main.yml)
           tailscale version | head -n 1 | grep -qx "$want"
           systemctl is-active tailscaled
+      # Argo CD is installed and has its app-of-apps. No wait for a sync: Argo CD reads main, CI tests a branch.
+      - name: Argo CD runs and follows clusters/ops
+        run: |
+          kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
+          kubectl -n argocd get application root -o jsonpath='{.spec.source.path}' | grep -qx clusters/ops/apps
       - name: Summary
         if: always()
         run: |
