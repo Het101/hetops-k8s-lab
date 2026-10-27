@@ -1,0 +1,44 @@
+# Tailscale: the private link between the lab and the ops cluster (27 Oct). Bedrock installs it and keeps the
+# daemon running. Joining the tailnet is the owner's step (sudo tailscale up): a login key never goes into git.
+
+# get_url reports "changed" in check mode even when the file is there (as with Docker's key in roles/kubernetes),
+# which the drift check would take for drift. So: download only when the key is missing.
+- name: Is Tailscale's apt key there?
+  ansible.builtin.stat:
+    path: /usr/share/keyrings/tailscale-archive-keyring.gpg
+  register: tailscale_key
+
+- name: Tailscale's signing key (only where it is missing)
+  ansible.builtin.get_url:
+    url: "https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_facts['distribution_release'] }}.noarmor.gpg"
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: "0644"
+  when: not tailscale_key.stat.exists
+
+- name: Tailscale's apt source
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/tailscale.list
+    content: >
+      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg]
+      https://pkgs.tailscale.com/stable/ubuntu {{ ansible_facts['distribution_release'] }} main
+    mode: "0644"
+  register: tailscale_source
+
+- name: The apt cache knows Tailscale's packages  # noqa: no-handler
+  ansible.builtin.apt:
+    update_cache: true
+  when: tailscale_source is changed
+
+# Check mode on a machine without the source yet: apt cannot know the package, so skip rather than fail.
+- name: Tailscale, at the written-down version
+  ansible.builtin.apt:
+    name: "tailscale={{ tailscale_version }}"
+    state: present
+  when: not (ansible_check_mode and tailscale_source is changed)
+
+- name: The Tailscale daemon runs, and starts on boot
+  ansible.builtin.systemd_service:
+    name: tailscaled
+    state: started
+    enabled: true
+  when: not (ansible_check_mode and tailscale_source is changed)

@@ -1,0 +1,3 @@
+# The lab's Tailscale on 27 Oct, so both ends of the link run the same version. Not held: patch.yml can move it,
+# and the nightly drift check then names the version to write down here.
+tailscale_version: "1.104.2"

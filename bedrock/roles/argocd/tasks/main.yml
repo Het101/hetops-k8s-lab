@@ -1,0 +1,69 @@
+# Argo CD on the ops cluster (27 Oct), installed the way roles/cluster installs Calico: only where missing,
+# from the release manifest at the written-down version. Then pointed at clusters/ops/ in this repo; from there
+# git owns what runs on the cluster. API tasks run on the node, with the node's kubeconfig (option A).
+
+- name: Read whether Argo CD is installed
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: argocd-server
+    namespace: argocd
+    kubeconfig: "{{ argocd_kubeconfig }}"
+  register: argocd_server
+  when: cluster_ready
+
+- name: Install Argo CD (only where it is missing)
+  when: cluster_ready and argocd_server.resources | length == 0
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  block:
+    - name: Argo CD's namespace
+      kubernetes.core.k8s:
+        kind: Namespace
+        name: argocd
+        state: present
+        kubeconfig: "{{ argocd_kubeconfig }}"
+
+    - name: Argo CD's release manifest, at the written-down version
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/argoproj/argo-cd/{{ argocd_version }}/manifests/install.yaml"
+        dest: "/etc/kubernetes/bedrock-argocd-{{ argocd_version }}.yaml"
+        mode: "0644"
+
+    # Server-side apply: Argo CD's CRDs are too big for client-side apply's last-applied annotation
+    # (the lab's own install, 8 Oct, needed the same).
+    - name: Argo CD runs
+      kubernetes.core.k8s:
+        state: present
+        src: "/etc/kubernetes/bedrock-argocd-{{ argocd_version }}.yaml"
+        namespace: argocd
+        apply: true
+        server_side_apply:
+          field_manager: bedrock
+        kubeconfig: "{{ argocd_kubeconfig }}"
+
+- name: Argo CD's server is available
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: argocd-server
+    namespace: argocd
+    kubeconfig: "{{ argocd_kubeconfig }}"
+    wait: true
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300
+  when: cluster_ready
+
+# lookup() runs on the controller (the lab, or the CI runner): this repo's file, never a file on the node.
+- name: Argo CD follows clusters/ops in git
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../clusters/ops/root.yaml') | from_yaml }}"
+    kubeconfig: "{{ argocd_kubeconfig }}"
+  when: cluster_ready
