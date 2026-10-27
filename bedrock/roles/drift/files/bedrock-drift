@@ -2,7 +2,7 @@
 """Bedrock drift check: run the playbook in check mode and tell the Change Timeline what differs.
 
 Run nightly by bedrock-drift.timer (roles/drift) on the control node, for every server in the inventory
-(25 Oct: the lab and vm2). Nothing is changed: --check only. The timeline gets, per server, a count and the
+(27 Oct: the lab, vm2 and hetops-3). Nothing is changed: --check only. The timeline gets, per server, a count and the
 roles, never task names (those stay here, in the journal: journalctl -u bedrock-drift). It is told only when
 a server differs, or once when it matches Bedrock again.
 """

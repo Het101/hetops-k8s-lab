@@ -10,7 +10,7 @@ Ansible for everything under Kubernetes, on every server: the OS, SSH, packages,
 | `vm2` (140.238.224.158) | `staging` | SSH as `ubuntu` with `~/.ssh/bedrock_fleet`, pinned host key | gets every change first |
 | `hetops-3` (130.210.37.122) | `ops` | SSH as `ubuntu` with `~/.ssh/bedrock_fleet`, pinned host key | the ops cluster: tools the lab relies on, its own Argo CD (`clusters/ops/`) |
 
-`k8s` is the parent of all three groups: [`group_vars/k8s.yml`](group_vars/k8s.yml) holds the versions every Kubernetes node shares. The fleet key is accepted only from the lab's IP (`from="140.245.13.138"` in vm2's `authorized_keys`).
+`k8s` is the parent of all three groups: [`group_vars/k8s.yml`](group_vars/k8s.yml) holds the versions every Kubernetes node shares. The fleet key is accepted only from the lab's IP (`from="140.245.13.138"` in each target's `authorized_keys`).
 
 Variable precedence, lowest first: role defaults < `group_vars/all` < `group_vars/k8s.yml` < `group_vars/lab.yml` / `staging.yml` / `ops.yml` < `host_vars/` < `-e`.
 
@@ -30,11 +30,11 @@ Roles: `common` (every server: SSH hardening, unattended-upgrades, reboot report
 `patch.yml`, `upgrade.yml` and `reboot.yml` run staging and ops as a canary: one server at a time, and any failure there (`any_errors_fatal`) ends the run before the lab play starts. The lab play skips itself unless its opt-in is passed. So the safe default of every command is "staging and ops only".
 
 ```bash
-ansible-playbook site.yml --check --diff                                   # both servers: is anything different from git?
+ansible-playbook site.yml --check --diff                                   # the whole fleet: is anything different from git?
 ansible-playbook site.yml --limit staging                                  # apply to staging only
-ansible-playbook patch.yml                                                 # patch staging
-ansible-playbook patch.yml -e patch_lab=true                               # staging, then the lab
-ansible-playbook upgrade.yml -e @upgrades/1.34.yml --tags kubernetes       # staging
+ansible-playbook patch.yml                                                 # patch staging and ops
+ansible-playbook patch.yml -e patch_lab=true                               # staging and ops, then the lab
+ansible-playbook upgrade.yml -e @upgrades/1.34.yml --tags kubernetes       # staging and ops
 ansible-playbook upgrade.yml -e @upgrades/1.34.yml --tags kubernetes -e upgrade_lab=true   # then the lab
 ```
 
@@ -50,12 +50,12 @@ systemd-run --user --unit=bedrock-run --working-directory=$PWD -E PATH=$PATH -E 
 One minor at a time (kubeadm's rule), each one in its own `upgrades/<minor>.yml`:
 
 1. CI rehearses every pending step on a throwaway cluster built at the step's starting version (`upgrade_from_vars`).
-2. Run it on staging (Calico tag first if Calico moves, then `kubernetes`). Pin staging's new versions in `group_vars/staging.yml`, so the drift check describes it as it now is.
+2. Run it on staging and ops (Calico tag first if Calico moves, then `kubernetes`). Pin the new versions in `group_vars/staging.yml` and `group_vars/ops.yml`, so the drift check describes them as they now are.
 3. Run it on the lab in a window the owner picks (the lab runs every live site), with `-e upgrade_lab=true`.
-   A server already past a step skips it, so staging (ahead) never blocks the lab catching up.
-4. Move the values into `group_vars/k8s.yml` and take the pins out of `staging.yml`.
+   A server already past a step skips it, so staging and ops (ahead) never block the lab catching up.
+4. Move the values into `group_vars/k8s.yml` and take the pins out of both `staging.yml` and `ops.yml`.
 
-Calico only ever moves up: a step never pulls a newer Calico back down. Today (25 Oct) both servers run
+Calico only ever moves up: a step never pulls a newer Calico back down. Today (27 Oct) all three servers run
 Kubernetes 1.35.9, etcd 3.6.6, Calico 3.31.7. 1.35 is supported until 28 Feb 2027; 1.36 will need Calico 3.32.
 
 Before applying, each run snapshots etcd to `/var/lib/etcd/bedrock-before-<version>.db`, refuses while a chaos job is running, and afterwards checks the node is Ready on the new version and the API server still has every audit flag.

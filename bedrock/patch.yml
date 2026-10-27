@@ -2,9 +2,9 @@
 # staging and ops first. Security updates already install themselves daily (roles/common: unattended-upgrades);
 # this is for everything else, in a window the owner picks.
 #
-#   ansible-playbook patch.yml --check                  what would update, on staging
-#   ansible-playbook patch.yml                          patch staging
-#   ansible-playbook patch.yml -e patch_lab=true        staging and ops, then the lab (only if staging passed)
+#   ansible-playbook patch.yml --check                  what would update, on staging and ops
+#   ansible-playbook patch.yml                          patch staging and ops
+#   ansible-playbook patch.yml -e patch_lab=true        staging and ops, then the lab (only if they passed)
 #
 # Why the lab is opt-in: an update to docker-ce or containerd restarts Docker, and every live site
 # (Coolify) restarts with it. The kube packages and containerd are held, so they never move here; a
