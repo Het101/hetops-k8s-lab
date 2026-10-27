@@ -27,6 +27,7 @@
   become: true
   roles:
     - tailscale
+    - argocd
 
 # The nightly drift check lives on the control node (the lab) and checks the whole fleet from there.
 - name: The control node

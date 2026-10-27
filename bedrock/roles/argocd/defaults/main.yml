@@ -1,0 +1,3 @@
+# The lab's Argo CD on 27 Oct (quay.io/argoproj/argocd:v3.5.4). This role installs it where it is missing and
+# never moves an installed one: an Argo CD upgrade is a step of its own, like Calico's.
+argocd_version: v3.5.4

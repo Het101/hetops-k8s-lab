@@ -1,0 +1,18 @@
+# The ops cluster's app-of-apps (hetops-3, 27 Oct). Outside argo/ on purpose: the lab's root app reads argo/
+# only, so it never sees this folder, and this cluster's Argo CD reads only this one. Applied by Bedrock
+# (roles/argocd); everything under apps/ is then git's.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: clusters/ops/apps
+    directory: { recurse: true }
+  destination: { server: https://kubernetes.default.svc, namespace: argocd }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
