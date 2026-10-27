@@ -82,6 +82,10 @@ jobs:
           sudo journalctl -u bedrock-drift.service --no-pager -o cat | tail -n 5 | tee drift.log
           grep -q '^my-workspace: 0 changed, 0 failed' drift.log
           if grep -qE 'FAILED|would change' drift.log; then echo 'the drift check found differences'; exit 1; fi
+      - name: TEMP diagnose drift
+        if: failure()
+        run: |
+          ansible-playbook site.yml --check --diff 2>&1 | grep -v "^ok:" | tail -n 60
       - name: The cluster runs a pod, and the audit log is being written
         run: |
           kubectl get nodes -o wide
