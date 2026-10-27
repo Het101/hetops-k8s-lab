@@ -9,7 +9,7 @@
     kind: Deployment
     name: argocd-server
     namespace: argocd
-    kubeconfig: "{{ audit_kubeconfig }}"
+    kubeconfig: "{{ argocd_kubeconfig }}"
   register: argocd_server
   when: cluster_ready
 
@@ -23,7 +23,7 @@
         kind: Namespace
         name: argocd
         state: present
-        kubeconfig: "{{ audit_kubeconfig }}"
+        kubeconfig: "{{ argocd_kubeconfig }}"
 
     - name: Argo CD's release manifest, at the written-down version
       ansible.builtin.get_url:
@@ -41,7 +41,7 @@
         apply: true
         server_side_apply:
           field_manager: bedrock
-        kubeconfig: "{{ audit_kubeconfig }}"
+        kubeconfig: "{{ argocd_kubeconfig }}"
 
 - name: Argo CD's server is available
   vars:
@@ -50,7 +50,7 @@
     kind: Deployment
     name: argocd-server
     namespace: argocd
-    kubeconfig: "{{ audit_kubeconfig }}"
+    kubeconfig: "{{ argocd_kubeconfig }}"
     wait: true
     wait_condition:
       type: Available
@@ -65,5 +65,5 @@
   kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../clusters/ops/root.yaml') | from_yaml }}"
-    kubeconfig: "{{ audit_kubeconfig }}"
+    kubeconfig: "{{ argocd_kubeconfig }}"
   when: cluster_ready

@@ -1,3 +1,6 @@
 # The lab's Argo CD on 27 Oct (quay.io/argoproj/argocd:v3.5.4). This role installs it where it is missing and
 # never moves an installed one: an Argo CD upgrade is a step of its own, like Calico's.
 argocd_version: v3.5.4
+# The node user's kubeconfig. Its own variable, as the drift role's is: roles/audit's audit_kubeconfig is a default
+# of a role in another play, and this role runs in the ops cluster's play. bedrock_kube_home comes from group_vars.
+argocd_kubeconfig: "{{ bedrock_kube_home }}/.kube/config"
