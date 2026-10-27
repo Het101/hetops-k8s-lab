@@ -1,5 +1,8 @@
 # Tailscale: the private link between the lab and the ops cluster (27 Oct). Bedrock installs it and keeps the
 # daemon running. Joining the tailnet is the owner's step (sudo tailscale up): a login key never goes into git.
+# Owner follow-ups, in the Tailscale admin console and on each node: disable key expiry for each ops node
+# (default node keys expire after 180 days), and keep Tailscale's own auto-update off (sudo tailscale set
+# --auto-update=false) so only Bedrock moves the version.
 
 # get_url reports "changed" in check mode even when the file is there (as with Docker's key in roles/kubernetes),
 # which the drift check would take for drift. So: download only when the key is missing.
@@ -34,7 +37,31 @@
   ansible.builtin.apt:
     name: "tailscale={{ tailscale_version }}"
     state: present
+    allow_downgrade: true
+    allow_change_held_packages: true
   when: not (ansible_check_mode and tailscale_source is changed)
+
+# Held, like the kube packages (roles/kubernetes): patch.yml's apt upgrade would otherwise move it past
+# tailscale_version, and the line above would then be a downgrade. Moving it is a decision: change the version.
+- name: Apt holds Tailscale
+  ansible.builtin.dpkg_selections:
+    name: tailscale
+    selection: hold
+  register: tailscale_hold
+  when: not (ansible_check_mode and tailscale_source is changed)
+
+- name: Read which packages apt holds back
+  ansible.builtin.command: apt-mark showhold
+  register: tailscale_held
+  check_mode: false
+  changed_when: false
+
+- name: Apt will not upgrade Tailscale behind Bedrock's back
+  ansible.builtin.assert:
+    that: "'tailscale' in tailscale_held.stdout_lines"
+    fail_msg: "tailscale is not held: an apt upgrade could move it to another version"
+    quiet: true
+  when: not (ansible_check_mode and (tailscale_source is changed or tailscale_hold is changed))   # check mode: not held yet
 
 - name: The Tailscale daemon runs, and starts on boot
   ansible.builtin.systemd_service:

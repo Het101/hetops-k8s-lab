@@ -1,8 +1,8 @@
 # Reboot the fleet, staging and ops first, and prove everything came back on its own. Bedrock's other playbooks
 # never reboot (roles/common only reports a pending one); this is the one that does, in a window the owner picks.
 #
-#   ansible-playbook reboot.yml                          staging, if it has a reboot pending
-#   ansible-playbook reboot.yml -e reboot_force=true     staging, pending or not (a boot test)
+#   ansible-playbook reboot.yml                          staging and ops, if they have a reboot pending
+#   ansible-playbook reboot.yml -e reboot_force=true     staging and ops, pending or not (a boot test)
 #   ansible-playbook reboot.yml -e reboot_lab=true       staging and ops, then the lab (only if they came back)
 #   ansible-playbook reboot.yml --tags verify -e reboot_lab=true    after the lab is back: did everything return?
 #

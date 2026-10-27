@@ -4,7 +4,7 @@
 
 # The kube packages, held. Discovery, 21 Oct: 1.31.14. Upgraded 22 Oct to 1.32 (upgrades/1.32.yml), then on
 # 25 Oct through 1.33, 1.34 (etcd 3.6) and 1.35: CI, then staging, then the lab. Upgrading is one minor at a
-# time: a new upgrades/<minor>.yml, staging first (pinned in staging.yml while ahead), then these values.
+# time: a new upgrades/<minor>.yml, staging and ops first (pinned in staging.yml and ops.yml while ahead), then these values.
 kubernetes_minor: "1.35"
 kubernetes_package_version: "1.35.9-1.1"
 

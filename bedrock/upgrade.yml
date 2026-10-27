@@ -1,14 +1,14 @@
 # Kubernetes and Calico upgrades across the fleet, one step at a time, staging and ops first, with the values from
 # upgrades/<minor>.yml:
-#   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags calico                       staging
-#   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags kubernetes                   staging
+#   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags calico                       staging and ops
+#   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags kubernetes                   staging and ops
 #   ansible-playbook upgrade.yml -e @upgrades/1.33.yml --tags kubernetes -e upgrade_lab=true   staging and ops, then the lab
 # Each step does nothing if the server is already there, so it is safe to run twice. Rehearsed in CI on a
 # throwaway cluster (job: upgrade), then on staging, before it ever runs on the lab server.
 #
-# While staging is ahead, group_vars/staging.yml pins its versions over group_vars/k8s.yml (the nightly drift
-# check would otherwise call the upgraded staging drifted). Once the lab catches up, the new values move to
-# k8s.yml and the pins come out of staging.yml.
+# While staging and ops are ahead, group_vars/staging.yml and group_vars/ops.yml pin their versions over
+# group_vars/k8s.yml (the nightly drift check would otherwise call the upgraded servers drifted). Once the lab
+# catches up, the new values move to k8s.yml and the pins come out of both.
 
 # Staging is the canary: if anything fails here, the run stops and the lab is never touched.
 - name: Upgrade staging and ops
