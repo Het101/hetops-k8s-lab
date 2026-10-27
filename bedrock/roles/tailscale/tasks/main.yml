@@ -11,12 +11,13 @@
 - name: Tailscale's apt source
   ansible.builtin.copy:
     dest: /etc/apt/sources.list.d/tailscale.list
-    content: |
-      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {{ ansible_facts['distribution_release'] }} main
+    content: >
+      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg]
+      https://pkgs.tailscale.com/stable/ubuntu {{ ansible_facts['distribution_release'] }} main
     mode: "0644"
   register: tailscale_source
 
-- name: The apt cache knows Tailscale's packages
+- name: The apt cache knows Tailscale's packages  # noqa: no-handler
   ansible.builtin.apt:
     update_cache: true
   when: tailscale_source is changed
