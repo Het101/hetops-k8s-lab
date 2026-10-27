@@ -21,6 +21,13 @@
     - cluster
     - audit
 
+# The ops cluster (hetops-3, 27 Oct): its private link to the lab, and its own Argo CD, which deploys clusters/ops/.
+- name: The ops cluster
+  hosts: ops
+  become: true
+  roles:
+    - tailscale
+
 # The nightly drift check lives on the control node (the lab) and checks the whole fleet from there.
 - name: The control node
   hosts: lab
