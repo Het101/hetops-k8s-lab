@@ -3,8 +3,9 @@
 # git owns what runs on the cluster. API tasks run on the node, with the node's kubeconfig (option A).
 
 # Gatus (clusters/ops/gatus) runs as non-root UID 65532, and fsGroup does not apply to hostPath volumes, so the host
-# layer owns its state directory (recurse also re-owns an existing gatus.db, -wal and -shm). This role is ops-only
-# (site.yml plays it on group ops); the nightly drift check guards the ownership.
+# layer owns its state directory. Only the directory: the files inside are Gatus's own, created by 65532 (a one-time
+# recursive run on 28 Oct re-owned the files root had made). This role is ops-only (site.yml plays it on group ops);
+# the nightly drift check guards the ownership.
 - name: Gatus's state directory is owned by its non-root user
   ansible.builtin.file:
     path: /var/lib/gatus
@@ -12,7 +13,6 @@
     owner: "65532"
     group: "65532"
     mode: "0700"
-    recurse: true
 
 - name: Read whether Argo CD is installed
   vars:

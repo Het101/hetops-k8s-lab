@@ -13,8 +13,16 @@ spec:
     metadata:
       labels: { app: gatus }
       annotations:
-        hetops.dev/config-version: "3"  # bump to restart Gatus on a config change it does not pick up itself
+        hetops.dev/config-version: "4"  # bump to restart Gatus on a config change it does not pick up itself
     spec:
+      automountServiceAccountToken: false   # Gatus never calls the Kubernetes API
+      # The image is FROM scratch with no user, so the UID is set here. Bedrock (roles/argocd) owns /var/lib/gatus as
+      # 65532, because fsGroup does not apply to hostPath volumes.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: { type: RuntimeDefault }
       containers:
         - name: gatus
           image: ghcr.io/twin/gatus:v5.37.0
@@ -44,6 +52,7 @@ spec:
       volumes:
         - name: config
           configMap: { name: gatus-config }
-        # One node, so a hostPath is the node's disk. Lost only if hetops-3 is rebuilt (history, not configuration).
+        # One node, so a hostPath is the node's disk: history and open alerts, lost if hetops-3 is rebuilt. Type
+        # Directory: Bedrock creates it owned by 65532, and a missing one fails loudly instead of appearing as root's.
         - name: data
-          hostPath: { path: /var/lib/gatus, type: DirectoryOrCreate }
+          hostPath: { path: /var/lib/gatus, type: Directory }
