@@ -4,6 +4,7 @@ resources:
 - sealed-grafana-admin.yaml
 - sealed-alertmanager-telegram.yaml
 - sealed-alertmanager-timeline.yaml
+- sealed-alertmanager-watchdog.yaml
 - nginx-gateway-metrics.yaml
 - grafana-httproute.yaml
 - prometheus-httproute.yaml
