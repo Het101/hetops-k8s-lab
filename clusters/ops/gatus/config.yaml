@@ -92,7 +92,7 @@ data:
         url: https://lab.hetops.dev/timeline
         conditions: ["[STATUS] < 300", "[CERTIFICATE_EXPIRATION] > 336h"]
 
-    # The lab's Alertmanager pushes its always-firing Watchdog alert here every 2 to 3 minutes. No push for 5 minutes
+    # The lab's Alertmanager pushes its always-firing Watchdog alert here about every 2 minutes. No push for 5 minutes
     # means the lab's alerting (or the lab) is down. Key: watchers_lab-alerting.
     external-endpoints:
       - name: lab-alerting

@@ -796,4 +796,4 @@ Task 4 broke all 12 checks and restored them; Gatus was restarted after the rest
 
 ### Task 6a: a faster dead-man's switch (added 28 Oct)
 
-Two value changes: the lab's `watchdog` route in `platform/monitoring/values.yaml` goes `repeat_interval: 5m` → `2m` (a heartbeat every 2 to 3 minutes), and Gatus's `lab-alerting` `heartbeat.interval` goes `15m` → `5m` (config-version bumped to 3). Task 6 Step 1 is then re-run with a 15-minute silence: the alert is expected 5-10 minutes after the last heartbeat, and resolves within ~5 minutes after the silence ends.
+Two value changes: the lab's `watchdog` route in `platform/monitoring/values.yaml` goes `repeat_interval: 5m` → `1m` (a heartbeat about every 2 minutes, since the 1-minute `group_interval` flush sets the real gap), and Gatus's `lab-alerting` `heartbeat.interval` goes `15m` → `5m` (config-version bumped to 3). Task 6 Step 1 is then re-run with a 15-minute silence: the alert is expected 5-10 minutes after the last heartbeat, and resolves within ~5 minutes after the silence ends.

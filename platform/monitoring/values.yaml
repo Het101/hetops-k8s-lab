@@ -49,12 +49,12 @@ alertmanager:
       group_by: [alertname]
       routes:
       # The dead-man's switch (sub-project 1, 28 Oct): the always-firing Watchdog alert goes to the outside watcher
-      # on hetops-3 every 2 to 3 minutes. If it stops, Gatus alerts on its own Telegram bot.
+      # on hetops-3 about every 2 minutes. If it stops, Gatus alerts on its own Telegram bot.
       - receiver: watchdog
         matchers: ['alertname="Watchdog"']
         group_wait: 0s
         group_interval: 1m
-        repeat_interval: 2m
+        repeat_interval: 1m
       # Lab alerts go to the Change Timeline first, then on to Telegram (continue: true), so Telegram gets
       # every alert it got before.
       - receiver: timeline
