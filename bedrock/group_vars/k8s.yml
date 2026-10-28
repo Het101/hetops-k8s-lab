@@ -16,6 +16,11 @@ containerd_package_version: "2.2.3-1~ubuntu.24.04~noble"
 # 3.31.7 on 25 Oct (upgrades/1.33.yml; tested on 1.32-1.35, so 1.36 will need Calico 3.32).
 cluster_pod_subnet: 192.168.0.0/16
 cluster_calico_version: v3.31.7
+# Calico's iptables mark bits (28 Oct, outside-watcher addendum). Felix's default mask 0xffff0000 includes 0x80000, which
+# Calico puts on every packet leaving a pod; Tailscale reserves 0x80000 ("never through the tunnel": fwmark
+# 0x80000/0xff0000 lookup main), so pods could not reach the tailnet. 0xff000000 is Calico's minimum of 8 bits, clear of
+# Tailscale (0x00ff0000), kube-proxy (0x4000, 0x8000) and the CNI port mapper (0x2000).
+cluster_calico_iptables_mark_mask: "0xff000000"
 
 
 # The Python Kubernetes API client Ansible's kubernetes.core modules use: the lab's (pipx inject ansible

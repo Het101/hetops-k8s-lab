@@ -97,6 +97,60 @@
         src: "/etc/kubernetes/bedrock-calico-{{ cluster_calico_version }}.yaml"
         kubeconfig: "{{ audit_kubeconfig }}"
 
+# Felix's mark bits (28 Oct). Felix creates FelixConfiguration "default" itself on its first start, so a new cluster
+# waits for it; then only iptablesMarkMask is patched (the CRD stores it as an integer, hence int(base=16)).
+# Felix restarts itself to apply a new mask.
+- name: Read Felix's configuration (Felix creates it when it first starts)
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s_info:
+    api_version: crd.projectcalico.org/v1
+    kind: FelixConfiguration
+    name: default
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: cluster_felix
+  until: cluster_felix.resources | length == 1
+  retries: 30
+  delay: 10
+  when: cluster_ready
+
+- name: Calico's packet marks stay clear of Tailscale's
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: crd.projectcalico.org/v1
+    kind: FelixConfiguration
+    name: default
+    merge_type: merge
+    definition:
+      spec:
+        # the CRD field is an integer: int(base=16) relies on ansible-core >= 2.19 keeping native types
+        iptablesMarkMask: "{{ cluster_calico_iptables_mark_mask | int(base=16) }}"
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: cluster_felix_mask
+  when: cluster_ready
+
+# The pod's Ready is no proof Felix has reprogrammed: Felix restarts inside the container, so the pod usually never
+# turns NotReady and a wait on it returns at once. Read the live rules instead (also catches a Felix that crash-loops).
+- name: Calico's live rules use only its own mark bits
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      set -o pipefail
+      rules=$(iptables-save | grep -E '^-A cali-')
+      test -n "$rules"
+      echo "$rules" | grep -oE -- '--set-xmark 0x[0-9a-f]+/0x[0-9a-f]+' \
+        | python3 -c "import sys; sys.exit(any(int(x, 16) & 0xff0000 for w in sys.stdin for x in w.split()[1].split('/')))"
+  become: true
+  register: cluster_calico_marks
+  until: cluster_calico_marks.rc == 0
+  retries: 24
+  delay: 5
+  changed_when: false
+  check_mode: false
+  when: cluster_ready and not (ansible_check_mode and cluster_felix_mask is changed)
+
 - name: The node is Ready
   vars:
     ansible_python_interpreter: "{{ bedrock_api_python }}"
