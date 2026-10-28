@@ -13,3 +13,5 @@ spec:
   destination: { server: https://kubernetes.default.svc, namespace: watch }
   syncPolicy:
     automated: { prune: true, selfHeal: true }
+    # a rebuild can sync this before the SealedSecret CRD exists; automated sync does not retry the same commit without this
+    retry: { limit: 10, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }

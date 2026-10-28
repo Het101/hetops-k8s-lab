@@ -4,7 +4,7 @@
 
 **Goal:** Gatus on hetops-3 checks every public HetOps site from outside and alerts on its own Telegram bot; the lab's Alertmanager and Kuma watch it back, so either side going silent is noticed.
 
-**Architecture:** One Gatus pod (namespace `watch`) deployed by hetops-3's Argo CD from `clusters/ops/gatus/`, its config a ConfigMap, its secrets a SealedSecret sealed with hetops-3's key, its port reachable only on hetops-3's Tailscale address. The lab's Alertmanager sends its always-firing `Watchdog` alert to a Gatus heartbeat endpoint every 5 minutes (one PR to `platform/monitoring/`); Kuma on the lab gets one monitor on Gatus's health.
+**Architecture:** One Gatus pod (namespace `watch`) deployed by hetops-3's Argo CD from `clusters/ops/gatus/`, its config a ConfigMap, its secrets a SealedSecret sealed with hetops-3's key, its port reachable only on hetops-3's Tailscale address. The lab's Alertmanager sends its always-firing `Watchdog` alert to a Gatus heartbeat endpoint (Watchdog about every 2 minutes: `repeat_interval: 1m`, 1-minute `group_interval`; Gatus `heartbeat.interval: 5m`) (one PR to `platform/monitoring/`); Kuma on the lab gets one monitor on Gatus's health.
 
 **Tech Stack:** Gatus v5.37.0 (`ghcr.io/twin/gatus:v5.37.0`, arm64), Argo CD v3.5.4, sealed-secrets 0.40.0 (`kubeseal` 0.40.0 on the lab), kube-prometheus-stack Alertmanager, Uptime Kuma 2.5.5, Tailscale 1.104.2.
 
@@ -17,7 +17,7 @@
 - Every check runs every 60 s; alerts after 3 failures in a row (`failure-threshold: 3`), resolves after 2 successes, `send-on-resolved: true`.
 - Every HTTPS check also has `[CERTIFICATE_EXPIRATION] > 336h`.
 - Telegram: a NEW bot only hetops-3 knows; chat ID `718892351`.
-- Heartbeat: external endpoint `lab-alerting`, group `watchers` (key `watchers_lab-alerting`), `heartbeat.interval: 15m`; the lab's Alertmanager sends `Watchdog` every 5 minutes (`repeat_interval: 5m`).
+- Heartbeat: external endpoint `lab-alerting`, group `watchers` (key `watchers_lab-alerting`), `heartbeat.interval: 5m`; the lab's Alertmanager sends `Watchdog` about every 2 minutes (`repeat_interval: 1m`, 1-minute `group_interval`).
 - Secrets only as SealedSecrets: `gatus-secrets` (namespace `watch`) sealed with hetops-3's key; `alertmanager-watchdog` (namespace `monitoring`) sealed with the lab's key. No token is ever printed, pasted in chat, or committed in plain text.
 - The lab changes only through a merged PR, except: a throwaway test pod in Task 1 (deleted the same step), and one Kuma monitor added in its UI by the owner (Task 6).
 - Commits: `Het Patel <patel.x.het@gmail.com>`, GPG-signed, subject under 72 characters, no Claude attribution. PRs to `main` on Het101/hetops-k8s-lab; merge only after `gh pr checks <n> --watch` exits 0.
@@ -438,6 +438,8 @@ Expected: application `Synced`; `0` test paths left. Within about 3 minutes, Tel
 
 ### Task 5: The lab's Alertmanager heartbeats into Gatus (PR D)
 
+> Cadence values here are superseded by Task 6a.
+
 **Files:**
 - Modify: `platform/monitoring/values.yaml`, `platform/monitoring/extras/kustomization.yaml`
 - Create: `platform/monitoring/extras/sealed-alertmanager-watchdog.yaml`
@@ -568,6 +570,8 @@ Expected: `Synced Healthy`; a non-zero token length; then at least 1 result, `Tr
 ---
 
 ### Task 6: Both directions of the dead-man's switch fire and recover
+
+> Cadence values here are superseded by Task 6a.
 
 **Files:** none in git. Changes: an Alertmanager silence (expires by itself), one Kuma monitor (owner), Gatus scaled to 0 and back.
 
@@ -797,3 +801,8 @@ Task 4 broke all 12 checks and restored them; Gatus was restarted after the rest
 ### Task 6a: a faster dead-man's switch (added 28 Oct)
 
 Two value changes: the lab's `watchdog` route in `platform/monitoring/values.yaml` goes `repeat_interval: 5m` → `1m` (a heartbeat about every 2 minutes, since the 1-minute `group_interval` flush sets the real gap), and Gatus's `lab-alerting` `heartbeat.interval` goes `15m` → `5m` (config-version bumped to 3). Task 6 Step 1 is then re-run with a 15-minute silence: the alert is expected 5-10 minutes after the last heartbeat, and resolves within ~5 minutes after the silence ends.
+
+### Final review fixes (added 28 Oct)
+
+- **PR A** (`fix/watcher-review-a`): Argo `retry` on the gatus app; Bedrock owns `/var/lib/gatus` (UID/GID 65532, 0700) on the `ops` group; `set -euo pipefail` in the Calico live-rules check; spec and plan corrections.
+- **PR B** (Gatus runs non-root): pod `securityContext` `runAsNonRoot`, `runAsUser: 65532`, `runAsGroup: 65532`, `seccompProfile: RuntimeDefault`; `automountServiceAccountToken: false`; hostPath `type: Directory`; `hetops.dev/config-version` bump. Rolled out only after Bedrock has run on hetops-3.
