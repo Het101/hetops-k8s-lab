@@ -754,3 +754,42 @@ Expected: `{"status":"UP"}`.
 - [ ] **Step 4:** Close PR #143 unmerged, commenting that Alertmanager's own heartbeat replaced it after the Calico mark-mask fix (link PR E and PR F).
 
 Task 6 Step 1 then uses the Alertmanager variant (the silence), not the CronJob suspend.
+
+### Task 4b: Gatus keeps its state on disk (added 28 Oct)
+
+#### Files (worktree `C:/Users/HetPatel/Personal/HetOps/hetops-k8s-lab-watch`, branch `feat/gatus-sqlite` from origin/main)
+
+- Modify `clusters/ops/gatus/config.yaml`: the `storage:` block becomes
+
+```yaml
+    storage:
+      type: sqlite
+      path: /data/gatus.db
+```
+
+  and the ConfigMap's header comment gains one sentence: state (results, triggered alerts) lives in SQLite on hetops-3's disk, so a restart keeps open alerts and still sends their "resolved".
+
+- Modify `clusters/ops/gatus/deployment.yaml`:
+  - the container gets a second volumeMount `{ name: data, mountPath: /data }`;
+  - `volumes:` gets `- name: data` with `hostPath: { path: /var/lib/gatus, type: DirectoryOrCreate }`, commented: one node, so a hostPath is the node's disk; lost only if hetops-3 is rebuilt (history, not configuration);
+  - the annotation `hetops.dev/config-version` goes from `"1"` to `"2"`;
+  - nothing else changes (`readOnlyRootFilesystem: true` stays: only `/data` is written; `strategy: Recreate` stays, which SQLite needs: one writer).
+
+- Modify `docs/superpowers/specs/2026-10-28-outside-watcher-design.md`: under "### Gatus on hetops-3", the line "- Storage: memory. …" becomes "- Storage: SQLite at `/data/gatus.db`, a hostPath `/var/lib/gatus` on hetops-3 (see Addendum 2)." And append at the end:
+
+```markdown
+
+## Addendum 2, 28 Oct: Gatus keeps its state on disk
+
+Task 4 broke all 12 checks and restored them; Gatus was restarted after the restore, and the new process, holding no memory of the alerts, sent no "resolved" messages. The same would happen after any restart during a real outage. Gatus persists triggered alerts across restarts only with SQLite or Postgres storage, so storage is now SQLite at `/data/gatus.db`, on a hostPath `/var/lib/gatus` (hetops-3 is one node). It costs no Oracle resource. Lost only if hetops-3 is rebuilt, which loses history, not configuration. Proven by Task 4b's test: alerts fire, Gatus restarts while they are open, and the "resolved" messages still arrive.
+```
+
+- Modify `docs/superpowers/plans/2026-10-28-outside-watcher.md`: append a section `### Task 4b: Gatus keeps its state on disk (added 28 Oct)` containing this file's "Files" and "Test" sections (copy them).
+
+#### Test (the controller runs it after merge; listed here for the plan)
+
+1. After Argo syncs: pod Running, `/health` UP over Tailscale, all 12 green, `ls -la /var/lib/gatus` on hetops-3 shows `gatus.db`.
+2. Pause `root` then `gatus` auto-sync; break every url to port `:1` (as Task 4's retry); `rollout restart`; wait until all 12 are failing and their Telegram alerts are sent (~6 min after the restart).
+3. `rollout restart` Gatus again while the checks are still broken: no second batch of failure alerts may arrive (the new process knows they are already triggered).
+4. Re-enable `root` (restores the clean config and gatus's automation), then `rollout restart` once more.
+5. Within ~3 minutes: 12 "resolved" messages on Telegram (owner counts), all 12 green, both apps `{"automated":{"prune":true,"selfHeal":true}}`, no `:1` left.

@@ -13,7 +13,7 @@ spec:
     metadata:
       labels: { app: gatus }
       annotations:
-        hetops.dev/config-version: "1"  # bump to restart Gatus on a config change it does not pick up itself
+        hetops.dev/config-version: "2"  # bump to restart Gatus on a config change it does not pick up itself
     spec:
       containers:
         - name: gatus
@@ -26,6 +26,7 @@ spec:
             - secretRef: { name: gatus-secrets }
           volumeMounts:
             - { name: config, mountPath: /config }
+            - { name: data, mountPath: /data }
           readinessProbe:
             httpGet: { path: /health, port: 8080 }
             periodSeconds: 10
@@ -43,3 +44,6 @@ spec:
       volumes:
         - name: config
           configMap: { name: gatus-config }
+        # One node, so a hostPath is the node's disk. Lost only if hetops-3 is rebuilt (history, not configuration).
+        - name: data
+          hostPath: { path: /var/lib/gatus, type: DirectoryOrCreate }

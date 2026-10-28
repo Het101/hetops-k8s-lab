@@ -21,7 +21,7 @@ The outside watcher runs on hetops-3, a separate Oracle account and machine. It 
 ### Gatus on hetops-3
 
 - Argo CD app `clusters/ops/apps/gatus.yaml`, manifests in `clusters/ops/gatus/`: namespace `watch`, one Deployment of `ghcr.io/twin/gatus:v5.37.0` (released 24 Sep 2026), a ConfigMap with `config.yaml`, a SealedSecret.
-- Storage: memory. Alerts need no history; a restart only empties the dashboard's graphs.
+- Storage: SQLite at `/data/gatus.db`, a hostPath `/var/lib/gatus` on hetops-3 (see Addendum 2).
 - **Reachable only over Tailscale:** the pod's port 8080 is a `hostPort` with `hostIP: 100.89.67.82` (hetops-3's Tailscale address), so kube-proxy/CNI forward it only for traffic to that address. Nothing listens for it on the public IP, and Oracle's security list still allows only SSH inbound.
 - Resources: requests 20m CPU / 32Mi, limit 128Mi.
 
@@ -98,3 +98,7 @@ Nothing new in Oracle: no disk, IP or service. Telegram bots are free. Gatus is 
 - **Rollout order:** CI, staging (vm2), ops (hetops-3), then the lab only with the owner's go-ahead at a quiet time. Felix restarts itself to apply a new mask.
 - **The heartbeat goes back to the original design:** with pods able to reach the tailnet, the lab's Alertmanager sends `Watchdog` to Gatus itself, proving the lab's alerting path, not only its network. The host-network CronJob (PR #143) is closed unmerged; its SealedSecret `alertmanager-watchdog` is reused.
 - Gatus keeps its hostPort bound to the Tailscale address; nothing in it changes.
+
+## Addendum 2, 28 Oct: Gatus keeps its state on disk
+
+Task 4 broke all 12 checks and restored them; Gatus was restarted after the restore, and the new process, holding no memory of the alerts, sent no "resolved" messages. The same would happen after any restart during a real outage. Gatus persists triggered alerts across restarts only with SQLite or Postgres storage, so storage is now SQLite at `/data/gatus.db`, on a hostPath `/var/lib/gatus` (hetops-3 is one node). It costs no Oracle resource. Lost only if hetops-3 is rebuilt, which loses history, not configuration. Proven by Task 4b's test: alerts fire, Gatus restarts while they are open, and the "resolved" messages still arrive.

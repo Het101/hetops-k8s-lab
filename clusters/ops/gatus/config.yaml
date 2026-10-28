@@ -1,6 +1,7 @@
 # The outside watcher's checks (sub-project 1, 28 Oct). Translated from Uptime Kuma's monitors on the lab;
 # Kuma keeps the backup and self-test checks, which report job results rather than whether something is up.
 # Gatus reloads this file when it changes. ${VARS} come from the SealedSecret gatus-secrets.
+# State (results, triggered alerts) lives in SQLite on hetops-3's disk, so a restart keeps open alerts and still sends their "resolved".
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,7 +9,8 @@ metadata:
 data:
   config.yaml: |
     storage:
-      type: memory
+      type: sqlite
+      path: /data/gatus.db
     web:
       port: 8080
     ui:
