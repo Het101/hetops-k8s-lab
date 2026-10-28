@@ -96,7 +96,8 @@ jobs:
           # the CRD stores the mask as an integer: 0xff000000 reads back as 4278190080
           kubectl get felixconfiguration default -o jsonpath='{.spec.iptablesMarkMask}' | grep -qx "$((0xff000000))"
           for i in $(seq 1 24); do
-            bad=$(sudo iptables-save | grep -E '^-A cali-' | grep -oE 'set-xmark 0x[0-9a-f]+/0x[0-9a-f]+'               | python3 -c "import sys; print(' '.join(w.split()[1] for w in sys.stdin if any(int(x, 16) & 0xff0000 for x in w.split()[1].split('/'))))")
+            bad=$(sudo iptables-save | grep -E '^-A cali-' | grep -oE 'set-xmark 0x[0-9a-f]+/0x[0-9a-f]+' \
+              | python3 -c "import sys; print(' '.join(w.split()[1] for w in sys.stdin if any(int(x, 16) & 0xff0000 for x in w.split()[1].split('/'))))")
             if [ -z "$bad" ] && [ "$(sudo iptables-save | grep -c '^-A cali-')" -gt 0 ]; then echo clear; exit 0; fi
             sleep 5
           done
