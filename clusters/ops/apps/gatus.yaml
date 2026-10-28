@@ -1,0 +1,15 @@
+# The outside watcher (sub-project 1): Gatus checks the public HetOps sites from outside the lab.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gatus
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: clusters/ops/gatus
+  destination: { server: https://kubernetes.default.svc, namespace: watch }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
