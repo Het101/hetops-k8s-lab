@@ -83,3 +83,18 @@ Left in Kuma, not here: the two backup checks (DNS and Radar `backup.*` fields),
 ## Cost
 
 Nothing new in Oracle: no disk, IP or service. Telegram bots are free. Gatus is open source (Apache 2.0).
+
+## Addendum, 28 Oct: Calico's packet marks clash with Tailscale's
+
+**Found while deploying.** Gatus answered on hetops-3 itself, but not from the lab over Tailscale. A packet capture on hetops-3 showed the lab's request arrive on `tailscale0`, reach the pod through the hostPort, and the pod's reply leave through `enp0s6` (the public card), where it is lost.
+
+**Root cause, proven.** Calico's `raw` table marks every packet coming out of a pod: `cali-PREROUTING -i cali+ -j MARK --set-xmark 0x80000/0x80000`. Tailscale reserves the same bit: its routing rule `5210: from all fwmark 0x80000/0xff0000 lookup main` means "never through the tunnel" (how Tailscale keeps its own traffic from looping). So any pod packet bound for a `100.x` address is routed by the main table, out of the public card. `ip route get 100.93.151.22` on hetops-3 shows it: no mark goes via `tailscale0`; mark `0x80000` goes via `enp0s6`; mark `0x1000000` goes via `tailscale0`. The lab has the same rules, which is why Task 1's pod probe timed out.
+
+**Why the bit is there.** Felix (Calico's agent) picks its mark bits from `iptablesMarkMask`, default `0xffff0000`, which includes Tailscale's whole range `0xff0000`. Neither FelixConfiguration (lab, vm2, hetops-3) sets a mask today.
+
+**Decision (owner: the best solution, no workaround).**
+- Every Kubernetes node sets Felix's `iptablesMarkMask` to **`0xff000000`**: 8 bits (Calico's minimum), clear of Tailscale (`0x00ff0000`), kube-proxy (`0x4000`, `0x8000`) and the CNI port mapper (`0x2000`).
+- **Bedrock owns it** (`group_vars/k8s.yml` value, `roles/cluster` patches FelixConfiguration `default`), so every rebuild has it and the nightly drift check guards it. CI tests first that no Calico rule sets a bit inside `0xff0000`.
+- **Rollout order:** CI, staging (vm2), ops (hetops-3), then the lab only with the owner's go-ahead at a quiet time. Felix restarts itself to apply a new mask.
+- **The heartbeat goes back to the original design:** with pods able to reach the tailnet, the lab's Alertmanager sends `Watchdog` to Gatus itself, proving the lab's alerting path, not only its network. The host-network CronJob (PR #143) is closed unmerged; its SealedSecret `alertmanager-watchdog` is reused.
+- Gatus keeps its hostPort bound to the Tailscale address; nothing in it changes.

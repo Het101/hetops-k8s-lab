@@ -614,3 +614,143 @@ ssh ubuntu@140.245.13.138 'curl -s http://100.89.67.82:8080/api/v1/endpoints/wat
 Expected: under 100 MiB (no metrics-server on hetops-3, so the cgroup value in bytes is the fallback: under 104857600); `000` publicly; recent heartbeats all `True`.
 
 - [ ] **Step 2: Close out** — the spec's five "Done when" checks with their evidence in Part 13; a Start here progress item; memory `oci-hetops-3.md` notes sub-project 1 done.
+
+---
+
+## Revision, 28 Oct: Task 5 is replaced by Tasks 5a to 5d
+
+Why: see the spec's addendum. Pods cannot reach the tailnet because Calico's pod mark `0x80000` is Tailscale's "bypass the tunnel" mark. The fix is Felix's `iptablesMarkMask: 0xff000000`, owned by Bedrock. Then the heartbeat is Alertmanager's own (Task 5's Step 2 variant), and PR #143 (the CronJob, Step 2b) is closed. Order: 5a, 5b, 5c (owner's go-ahead), 5d, then Tasks 4, 6, 7.
+
+Also corrected: Task 7 Step 1's `kubectl exec … cat` cannot work (the Gatus image is `FROM scratch`, no shell or `cat`). Read the pod's memory from the kubelet instead: `kubectl get --raw /api/v1/nodes/hetops-3/proxy/stats/summary | python3 -c "import sys,json; [print(c['name'], c['memory']['workingSetBytes']) for p in json.load(sys.stdin)['pods'] if p['podRef']['namespace']=='watch' for c in p['containers']]"` → under 104857600.
+
+### Task 5a: Bedrock sets Calico's mark mask (PR E, CI test first)
+
+**Files:**
+- Modify: `.github/workflows/bedrock.yml` (rebuild job), `bedrock/group_vars/k8s.yml`, `bedrock/roles/cluster/tasks/main.yml`
+
+**Interfaces:**
+- Produces: variable `cluster_calico_iptables_mark_mask` (`"0xff000000"`); FelixConfiguration `default` with `spec.iptablesMarkMask: 0xff000000` on every node that runs `site.yml`.
+
+- [ ] **Step 1: The failing CI check.** In `.github/workflows/bedrock.yml`, job `rebuild`, after the step `The cluster runs a pod, and the audit log is being written`, add:
+
+```yaml
+      # Calico's iptables marks stay clear of Tailscale's 0x00ff0000 (sub-project 1, 28 Oct): Felix's mask is set, and
+      # no rule Calico writes sets a bit in that range. Felix restarts itself after a mask change, so wait for it.
+      - name: Calico's packet marks stay clear of Tailscale's
+        run: |
+          kubectl get felixconfiguration default -o jsonpath='{.spec.iptablesMarkMask}' | grep -qx 0xff000000
+          for i in $(seq 1 24); do
+            bad=$(sudo iptables-save | grep -E '^-A cali-' | grep -oE 'set-xmark 0x[0-9a-f]+/0x[0-9a-f]+' \
+              | python3 -c "import sys; print(' '.join(w.split()[1] for w in sys.stdin if any(int(x, 16) & 0xff0000 for x in w.split()[1].split('/'))))")
+            if [ -z "$bad" ] && [ "$(sudo iptables-save | grep -c '^-A cali-')" -gt 0 ]; then echo clear; exit 0; fi
+            sleep 5
+          done
+          echo "Calico still sets bits inside 0xff0000: $bad"; exit 1
+```
+
+Commit (`test(bedrock): CI expects Calico's marks clear of Tailscale's`), push a branch `feat/calico-mark-mask` from `main`, open a draft PR. Expected: `rebuild` fails at this step (`grep -qx 0xff000000` finds an empty mask).
+
+- [ ] **Step 2: The value.** In `bedrock/group_vars/k8s.yml`, after `cluster_calico_version: v3.31.7`, add:
+
+```yaml
+# Calico's iptables mark bits (28 Oct, outside-watcher addendum). Felix's default mask 0xffff0000 includes 0x80000, which
+# Calico puts on every packet leaving a pod; Tailscale reserves 0x80000 ("never through the tunnel": fwmark
+# 0x80000/0xff0000 lookup main), so pods could not reach the tailnet. 0xff000000 is Calico's minimum of 8 bits, clear of
+# Tailscale (0x00ff0000), kube-proxy (0x4000, 0x8000) and the CNI port mapper (0x2000).
+cluster_calico_iptables_mark_mask: "0xff000000"
+```
+
+- [ ] **Step 3: The role.** In `bedrock/roles/cluster/tasks/main.yml`, directly before `- name: The node is Ready`, add:
+
+```yaml
+# Felix's mark bits (28 Oct). Felix creates FelixConfiguration "default" itself on its first start, so a new cluster
+# waits for it; then only iptablesMarkMask is patched. Felix restarts itself to apply a new mask.
+- name: Read Felix's configuration (Felix creates it when it first starts)
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s_info:
+    api_version: crd.projectcalico.org/v1
+    kind: FelixConfiguration
+    name: default
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: cluster_felix
+  until: cluster_felix.resources | length == 1
+  retries: 30
+  delay: 10
+  when: cluster_ready
+
+- name: Calico's packet marks stay clear of Tailscale's
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: crd.projectcalico.org/v1
+    kind: FelixConfiguration
+    name: default
+    merge_type: merge
+    definition:
+      spec:
+        iptablesMarkMask: "{{ cluster_calico_iptables_mark_mask }}"
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: cluster_felix_mask
+  when: cluster_ready
+
+- name: Calico is Ready again after Felix applies a new mask
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: kube-system
+    label_selectors: [k8s-app=calico-node]
+    kubeconfig: "{{ audit_kubeconfig }}"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 300
+  when: cluster_ready and cluster_felix_mask is changed
+```
+
+Commit (`feat(bedrock): Calico's mark mask stays clear of Tailscale`), push. Expected: every job passes, including "Second run changes nothing", the drift step (`my-workspace: 0 changed`) and the new step (`clear`). If the second run reports the patch as changed (the API returning the value in another form), write the value exactly as the API returns it. Do not merge before Task 5b can run the same day: from the merge on, the nightly drift check reports every node until it is applied.
+
+### Task 5b: Staging, then ops
+
+**Files:** none in git. Every run from the lab: `export PATH=$HOME/.local/bin:$PATH; cd ~/hetops-k8s-lab && git pull --ff-only && cd bedrock`.
+
+- [ ] **Step 1: Merge PR E** (`gh pr checks <n> --watch && gh pr merge <n> --squash --delete-branch`), pull on the lab.
+- [ ] **Step 2: vm2.** `ansible-playbook site.yml --check --diff --limit vm2` → only the patch task changed (`iptablesMarkMask`). Then `ansible-playbook site.yml --limit vm2`, then again: `changed=0`. Check over `ssh -i ~/.ssh/bedrock_fleet ubuntu@140.238.224.158`: `kubectl get felixconfiguration default -o jsonpath={.spec.iptablesMarkMask}` → `0xff000000`; `sudo iptables-save | grep -c "0x80000/0x80000"` → `0`; calico-node Running; node Ready.
+- [ ] **Step 3: hetops-3.** The same three runs with `--limit hetops-3`, the same checks over `ssh -i ~/.ssh/id_rsa ubuntu@130.210.37.122`. Then the real test, the one that failed:
+
+```bash
+ssh ubuntu@140.245.13.138 'curl -s --max-time 5 http://100.89.67.82:8080/health; echo'
+ssh -i ~/.ssh/id_rsa ubuntu@130.210.37.122 'kubectl run ts-probe --rm -i --restart=Never --image=curlimages/curl:8.11.1 --command -- sh -c "nc -z -w 5 100.93.151.22 22 && echo pod-reaches-tailnet"'
+```
+
+Expected: `{"status":"UP"}` (the reply now leaves through `tailscale0`) and `pod-reaches-tailnet`.
+
+### Task 5c: The lab (owner's go-ahead, a quiet time)
+
+**Files:** none in git.
+
+- [ ] **Step 1:** Ask the owner for a time, not near 21:30 UTC (chaos self-test) or 02:30 UTC (drift check). Felix restarts on the lab: policy programming pauses for seconds; the live sites (Coolify, Docker) do not run on Calico.
+- [ ] **Step 2:** `ansible-playbook site.yml --check --diff --limit my-workspace` → only the patch task. Apply, then again: `changed=0`. Checks: Task 5b Step 2's, plus the count from `kubectl get pods -A | grep -vcE 'Running|Completed'` is the same as before, and `curl -s -o /dev/null -w '%{http_code}' https://hetops.dev` → `200`.
+- [ ] **Step 3: Task 1's pod probe again,** now expected to succeed:
+
+```bash
+ssh ubuntu@140.245.13.138 'kubectl -n monitoring run ts-probe --rm -i --restart=Never --image=curlimages/curl:8.11.1 --command -- curl -s --max-time 5 http://100.89.67.82:8080/health'
+```
+
+Expected: `{"status":"UP"}`.
+
+### Task 5d: Alertmanager sends the heartbeat (PR F); PR #143 closed
+
+**Files:**
+- Create: `platform/monitoring/extras/sealed-alertmanager-watchdog.yaml`, taken from PR #143's branch (`git checkout origin/feat/watchdog-heartbeat -- platform/monitoring/extras/sealed-alertmanager-watchdog.yaml`): sealed with the lab's key, the same heartbeat token as Gatus's.
+- Modify: `platform/monitoring/extras/kustomization.yaml`, `platform/monitoring/values.yaml`
+
+- [ ] **Step 1:** Branch `feat/watchdog-alertmanager` from `main`. Make exactly Task 5 Step 2's changes (the `alertmanager` variant): the SealedSecret listed in `extras/kustomization.yaml`, `alertmanager-watchdog` in `secrets:`, the `watchdog` route first under `routes:`, the `watchdog` receiver. No CronJob.
+- [ ] **Step 2:** Task 5 Step 3 (baseline `monitoring` Synced Healthy), then Step 4's commit, PR (`feat(monitoring): Watchdog heartbeats the outside watcher`), checks, merge.
+- [ ] **Step 3:** Task 5 Step 5: the heartbeat arrives (`watchers_lab-alerting` results `True` within 6 minutes; Alertmanager's log shows no `401` or timeout for `watchdog`).
+- [ ] **Step 4:** Close PR #143 unmerged, commenting that Alertmanager's own heartbeat replaced it after the Calico mark-mask fix (link PR E and PR F).
+
+Task 6 Step 1 then uses the Alertmanager variant (the silence), not the CronJob suspend.
