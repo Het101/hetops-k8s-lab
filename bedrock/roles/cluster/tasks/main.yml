@@ -97,6 +97,53 @@
         src: "/etc/kubernetes/bedrock-calico-{{ cluster_calico_version }}.yaml"
         kubeconfig: "{{ audit_kubeconfig }}"
 
+# Felix's mark bits (28 Oct). Felix creates FelixConfiguration "default" itself on its first start, so a new cluster
+# waits for it; then only iptablesMarkMask is patched. Felix restarts itself to apply a new mask.
+- name: Read Felix's configuration (Felix creates it when it first starts)
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s_info:
+    api_version: crd.projectcalico.org/v1
+    kind: FelixConfiguration
+    name: default
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: cluster_felix
+  until: cluster_felix.resources | length == 1
+  retries: 30
+  delay: 10
+  when: cluster_ready
+
+- name: Calico's packet marks stay clear of Tailscale's
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: crd.projectcalico.org/v1
+    kind: FelixConfiguration
+    name: default
+    merge_type: merge
+    definition:
+      spec:
+        iptablesMarkMask: "{{ cluster_calico_iptables_mark_mask }}"
+    kubeconfig: "{{ audit_kubeconfig }}"
+  register: cluster_felix_mask
+  when: cluster_ready
+
+- name: Calico is Ready again after Felix applies a new mask
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: kube-system
+    label_selectors: [k8s-app=calico-node]
+    kubeconfig: "{{ audit_kubeconfig }}"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 300
+  when: cluster_ready and cluster_felix_mask is changed
+
 - name: The node is Ready
   vars:
     ansible_python_interpreter: "{{ bedrock_api_python }}"
