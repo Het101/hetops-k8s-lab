@@ -1,0 +1,45 @@
+# Gatus, reachable only over Tailscale: the hostPort is bound to hetops-3's Tailscale address, so the CNI forwards
+# 8080 only for traffic to 100.89.67.82; the public IP gets nothing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gatus
+spec:
+  replicas: 1
+  strategy: { type: Recreate }          # one hostPort, one pod: never two at once
+  selector:
+    matchLabels: { app: gatus }
+  template:
+    metadata:
+      labels: { app: gatus }
+      annotations:
+        hetops.dev/config-version: "1"  # bump to restart Gatus on a config change it does not pick up itself
+    spec:
+      containers:
+        - name: gatus
+          image: ghcr.io/twin/gatus:v5.37.0
+          ports:
+            - containerPort: 8080
+              hostPort: 8080
+              hostIP: 100.89.67.82
+          envFrom:
+            - secretRef: { name: gatus-secrets }
+          volumeMounts:
+            - { name: config, mountPath: /config }
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 30
+            failureThreshold: 4
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: config
+          configMap: { name: gatus-config }
