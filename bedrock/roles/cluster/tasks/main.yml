@@ -137,7 +137,7 @@
   ansible.builtin.shell:
     executable: /bin/bash
     cmd: |
-      set -o pipefail
+      set -euo pipefail
       rules=$(iptables-save | grep -E '^-A cali-')
       test -n "$rules"
       echo "$rules" | grep -oE -- '--set-xmark 0x[0-9a-f]+/0x[0-9a-f]+' \

@@ -98,3 +98,8 @@ hetops-3 already uses its account's whole Always Free allowance (4 OCPU, 24 GB, 
 | hetops-3's account is closed (Oracle allows one free tier per person) | Nothing lives only there: its state is git, and sub-projects keep data the lab can rebuild |
 | Pay As You Go bills anything past the free allowance | No new resources in this sub-project; the budget alerts on 0.01 |
 | The hostname changes back on a reboot | Fixed at the VNIC first, checked by a reboot before kubeadm runs |
+
+## Addendum, 28 Oct: two steps when rebuilding hetops-3
+
+1. Restore the sealing key BEFORE Argo starts: `kubectl apply -f ~/.secrets/hetops-3-sealed-secrets-key.yaml` into `kube-system`, ahead of Bedrock's `argocd` role, so the sealed-secrets controller adopts it and existing SealedSecrets (e.g. `gatus-secrets`) still unseal.
+2. Re-pin the Tailscale address: after re-joining, set it back to `100.89.67.82` in the Tailscale admin console (Machines, the machine, Edit IP address); git names that address.
