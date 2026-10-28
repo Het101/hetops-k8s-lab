@@ -1,0 +1,30 @@
+# The dead-man's switch (sub-project 1): pods on the lab cannot reach the tailnet, so this runs on the host's
+# network and pushes the heartbeat to the outside watcher on hetops-3 every 5 minutes.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: watchdog-heartbeat
+  namespace: monitoring
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 3600
+      backoffLimit: 0
+      template:
+        spec:
+          hostNetwork: true
+          restartPolicy: Never
+          containers:
+            - name: push
+              image: curlimages/curl:8.11.1
+              command: ["sh", "-c"]
+              args:
+                - curl -sf --max-time 10 -X POST -H "Authorization: Bearer $(cat /token/token)" "http://100.89.67.82:8080/api/v1/endpoints/watchers_lab-alerting/external?success=true"
+              volumeMounts: [{ name: token, mountPath: /token, readOnly: true }]
+          volumes:
+            - name: token
+              secret: { secretName: alertmanager-watchdog }

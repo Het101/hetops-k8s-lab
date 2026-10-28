@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: alertmanager-watchdog
+  namespace: monitoring
+spec:
+  encryptedData:
+    token: AgCnrfwOE7wMrLYeeBIWjL4eE88iTVQ+0HtH01MhkzDzQ4lvQ30CIxSvbvmgK/b13fqEslzSdIKDye/4VskBZBOgooAIjDc6IXq05MFqiy4xtm4Od0bsY5us2e8sG5xzq3v6vO7dDxq87+nj7EuEdjBe4DYWhHqcMmWX9UwbqRuHEuhoqVwfgaH5pnzYQ61RizDsFhlZXC5gKDG+aVjWgl3/zEzyQKFpwJx2yAHiNAxLJYyIznibt0Spx4B5Py0W/J2KfCNjbZGLznVaq8LXHT4sjmf8vqvKj5zHUv63L5P5+TEAjVZyqsrvzWO6bi/8sm9WJ1hZLfuvcVgkgwzg6HhrkGfDaZ0Cd9BTwglrG7xHpRY9I2w6dRhiN2Ce/ozN+6SjgVityrIfRiJLUrB3l2FfoBpYmjwCEggQf61h9r2UYvagcnux2sL34XYo93e5Q6xK6G/MVAE9u8o3MgPzSpJrPlAeSI2DYJCeWv0eHzln16SiU0AVwpBUcN/3ybcMjGKgnGngawGXA0gEk3i0VPi4KjEfLyeZqtP/TetQQQQykdWeWptvaTC1Re9yqEpgu3NzoGnhsVh9gNoIHI8quczVfCdH8YkOoRRqmzu2Bfx8a0SNacAwByoCf/osVKKVoMKGVAYHGAYaDRUJi3WYBvzb4MOJ+y+ysEdYJazyKxcKIGud7GBspw4AqTOVPpbRstYcIgXnxWhiEPZY8EQG0fp0s51v0A6Al+9tjoUuLt1nDXgXCJbW6JH0x4cFc9HBvtldtqVH48+iUygnLzcmB1t4
+  template:
+    metadata:
+      name: alertmanager-watchdog
+      namespace: monitoring
