@@ -793,3 +793,7 @@ Task 4 broke all 12 checks and restored them; Gatus was restarted after the rest
 3. `rollout restart` Gatus again while the checks are still broken: no second batch of failure alerts may arrive (the new process knows they are already triggered).
 4. Re-enable `root` (restores the clean config and gatus's automation), then `rollout restart` once more.
 5. Within ~3 minutes: 12 "resolved" messages on Telegram (owner counts), all 12 green, both apps `{"automated":{"prune":true,"selfHeal":true}}`, no `:1` left.
+
+### Task 6a: a faster dead-man's switch (added 28 Oct)
+
+Two value changes: the lab's `watchdog` route in `platform/monitoring/values.yaml` goes `repeat_interval: 5m` → `1m` (a heartbeat about every 2 minutes, since the 1-minute `group_interval` flush sets the real gap), and Gatus's `lab-alerting` `heartbeat.interval` goes `15m` → `5m` (config-version bumped to 3). Task 6 Step 1 is then re-run with a 15-minute silence: the alert is expected 5-10 minutes after the last heartbeat, and resolves within ~5 minutes after the silence ends.

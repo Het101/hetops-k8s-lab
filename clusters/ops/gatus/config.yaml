@@ -92,15 +92,15 @@ data:
         url: https://lab.hetops.dev/timeline
         conditions: ["[STATUS] < 300", "[CERTIFICATE_EXPIRATION] > 336h"]
 
-    # The lab's Alertmanager pushes its always-firing Watchdog alert here every 5 minutes. No push for 15 minutes
+    # The lab's Alertmanager pushes its always-firing Watchdog alert here about every 2 minutes. No push for 5 minutes
     # means the lab's alerting (or the lab) is down. Key: watchers_lab-alerting.
     external-endpoints:
       - name: lab-alerting
         group: watchers
         token: "${LAB_ALERTING_TOKEN}"
         heartbeat:
-          interval: 15m
+          interval: 5m
         alerts:
           - type: telegram
             failure-threshold: 1
-            description: "No heartbeat from the lab's Alertmanager for 15 minutes"
+            description: "No heartbeat from the lab's Alertmanager for 5 minutes"
