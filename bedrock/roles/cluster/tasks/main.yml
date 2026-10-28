@@ -98,7 +98,8 @@
         kubeconfig: "{{ audit_kubeconfig }}"
 
 # Felix's mark bits (28 Oct). Felix creates FelixConfiguration "default" itself on its first start, so a new cluster
-# waits for it; then only iptablesMarkMask is patched. Felix restarts itself to apply a new mask.
+# waits for it; then only iptablesMarkMask is patched (the CRD stores it as an integer, hence int(base=16)).
+# Felix restarts itself to apply a new mask.
 - name: Read Felix's configuration (Felix creates it when it first starts)
   vars:
     ansible_python_interpreter: "{{ bedrock_api_python }}"
@@ -124,7 +125,7 @@
     merge_type: merge
     definition:
       spec:
-        iptablesMarkMask: "{{ cluster_calico_iptables_mark_mask }}"
+        iptablesMarkMask: "{{ cluster_calico_iptables_mark_mask | int(base=16) }}"
     kubeconfig: "{{ audit_kubeconfig }}"
   register: cluster_felix_mask
   when: cluster_ready
