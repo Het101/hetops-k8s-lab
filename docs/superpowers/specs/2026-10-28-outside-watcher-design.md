@@ -50,7 +50,7 @@ Left in Kuma, not here: the two backup checks (DNS and Radar `backup.*` fields),
 
 ### The dead-man's switch, both ways
 
-- **Lab to hetops-3.** The lab's Alertmanager has an always-firing `Watchdog` alert (kube-prometheus-stack), routed nowhere today. A new route sends `alertname="Watchdog"` to a new receiver `watchdog`, a webhook to Gatus's external endpoint `http://100.89.67.82:8080/api/v1/endpoints/watchers_lab-alerting/external?success=true` with a bearer token, `repeat_interval: 5m`. In Gatus, external endpoint `lab-alerting` (group `watchers`) has `heartbeat.interval: 15m`: no heartbeat for 15 minutes means a Telegram alert that the lab's alerting is silent. The route sits before the others with `continue: true`; nothing else in the routing changes.
+- **Lab to hetops-3.** The lab's Alertmanager has an always-firing `Watchdog` alert (kube-prometheus-stack), routed nowhere today. A new route sends `alertname="Watchdog"` to a new receiver `watchdog`, a webhook to Gatus's external endpoint `http://100.89.67.82:8080/api/v1/endpoints/watchers_lab-alerting/external?success=true` with a bearer token, `repeat_interval: 2m`. In Gatus, external endpoint `lab-alerting` (group `watchers`) has `heartbeat.interval: 5m`: no heartbeat for 5 minutes means a Telegram alert that the lab's alerting is silent. The route sits before the others with `continue: true`; nothing else in the routing changes.
 - **hetops-3 to the lab.** The lab's Uptime Kuma gets one HTTP monitor, "Ops watcher", on `http://100.89.67.82:8080/health` every 60 s, notifying through the existing Brevo email. Kuma is configured in its UI, so this is a click, written into the journal.
 - **Risk decided before building:** the lab's Alertmanager pod must reach `100.89.67.82` over the lab's Tailscale (pod, node, `tailscale0`). This is tested first from a throwaway pod in `monitoring` on the lab. If it fails, the heartbeat comes from a CronJob on the lab instead (`curl` every 5 minutes, same URL and token); the Gatus side is unchanged.
 
@@ -102,3 +102,7 @@ Nothing new in Oracle: no disk, IP or service. Telegram bots are free. Gatus is 
 ## Addendum 2, 28 Oct: Gatus keeps its state on disk
 
 Task 4 broke all 12 checks and restored them; Gatus was restarted after the restore, and the new process, holding no memory of the alerts, sent no "resolved" messages. The same would happen after any restart during a real outage. Gatus persists triggered alerts across restarts only with SQLite or Postgres storage, so storage is now SQLite at `/data/gatus.db`, on a hostPath `/var/lib/gatus` (hetops-3 is one node). It costs no Oracle resource. Lost only if hetops-3 is rebuilt, which loses history, not configuration. Proven by Task 4b's test: alerts fire, Gatus restarts while they are open, and the "resolved" messages still arrive.
+
+## Addendum 3, 28 Oct: a faster dead-man's switch
+
+Task 6's silence test (20 minutes) raised no alert. Gatus checks a heartbeat once per `heartbeat.interval`, on a fixed phase, so with a 15-minute window and a heartbeat every ~6 minutes, losing the lab's alerting could go unnoticed for about 30 minutes. Alertmanager now sends `Watchdog` every 2 to 3 minutes (`repeat_interval: 2m`, checked on each 1-minute `group_interval`), and Gatus's window is 5 minutes: worst-case detection about 10 minutes, and one lost heartbeat does not alert.

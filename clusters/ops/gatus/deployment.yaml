@@ -13,7 +13,7 @@ spec:
     metadata:
       labels: { app: gatus }
       annotations:
-        hetops.dev/config-version: "2"  # bump to restart Gatus on a config change it does not pick up itself
+        hetops.dev/config-version: "3"  # bump to restart Gatus on a config change it does not pick up itself
     spec:
       containers:
         - name: gatus
