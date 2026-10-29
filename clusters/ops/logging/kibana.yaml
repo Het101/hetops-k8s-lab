@@ -1,0 +1,27 @@
+# Kibana on hetops-3, reached through hetops-3's own Cloudflare tunnel (cloudflared.yaml) behind Cloudflare Access.
+# publicBaseUrl moves to kibana.hetops.dev in Task 11.
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: ops-kibana
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  version: 9.5.5
+  count: 1
+  elasticsearchRef: { name: ops-logs }
+  http:
+    tls: { selfSignedCertificate: { disabled: true } }   # plain HTTP inside the cluster; Cloudflare terminates TLS
+  config:
+    server.publicBaseUrl: https://kibana-ops.hetops.dev
+    telemetry.optIn: false
+    telemetry.allowChangingOptInStatus: false
+  podTemplate:
+    spec:
+      containers:
+        - name: kibana
+          env: [{ name: NODE_OPTIONS, value: "--max-old-space-size=1280" }]   # the lab's tuning (E1, SIEM T1)
+          resources:
+            requests: { cpu: 100m, memory: 1280Mi }
+            limits: { memory: 2Gi }

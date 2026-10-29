@@ -1,0 +1,4 @@
+# No pod-security label: Elasticsearch uses a hostPort and a hostPath (snapshots), like Gatus in watch.
+apiVersion: v1
+kind: Namespace
+metadata: { name: logging }
