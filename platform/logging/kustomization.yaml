@@ -4,4 +4,10 @@ resources:
 - elasticsearch.yaml
 - kibana.yaml
 - filebeat.yaml
+- ops-filebeat.yaml
+- sealed-ops-shipper.yaml
 - httproute.yaml
+configMapGenerator:
+  - name: ops-es-ca
+    files: [ca.crt=ops-es-ca.crt]
+    options: { disableNameSuffixHash: true }
