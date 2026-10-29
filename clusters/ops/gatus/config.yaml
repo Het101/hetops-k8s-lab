@@ -121,7 +121,6 @@ data:
         name: Nightly snapshot (security, R2)
         group: logs
         interval: 5m
-        enabled: false              # enabled in Task 8 (the R2 policy does not exist yet)
         method: POST
         url: https://ops-logs-es-http.logging.svc:9200/.slm-history-*/_count
         headers: { Authorization: "Basic ${ES_WATCHER_BASIC}", Content-Type: application/json }
