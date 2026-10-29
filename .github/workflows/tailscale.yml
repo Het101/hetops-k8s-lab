@@ -1,0 +1,48 @@
+# The tailnet policy as code (29 Oct): tailscale/policy.hujson is tested on every pull request and pushed to
+# Tailscale when it reaches main. No stored secret: GitHub's OIDC token is exchanged for a short-lived Tailscale
+# token through two trust credentials (Tailscale admin, Settings, Trust credentials), whose client ID and audience
+# are not secret and live in repository variables. GitHub signs this repo's tokens with the immutable subject (owner
+# and repo with their numeric IDs, so a deleted and re-created repo of the same name cannot use the credentials):
+#   test  credential: subject repo:Het101@80185163/hetops-k8s-lab@1409803636:pull_request,        scope policy_file:read
+#   apply credential: subject repo:Het101@80185163/hetops-k8s-lab@1409803636:ref:refs/heads/main, scope policy_file
+name: tailscale
+
+on:
+  pull_request:
+    branches: [main]
+    paths: [tailscale/**, .github/workflows/tailscale.yml]
+  push:
+    branches: [main]
+    paths: [tailscale/**, .github/workflows/tailscale.yml]
+
+permissions:
+  contents: read
+  id-token: write   # the OIDC token Tailscale checks
+
+concurrency:
+  group: tailscale-policy
+  cancel-in-progress: false
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test the policy
+        if: github.event_name == 'pull_request'
+        uses: tailscale/gitops-acl-action@5a4a17f5708e9bf96f4ee915a95e9f83c2eebe1a # v1.5.2
+        with:
+          tailnet: ${{ vars.TS_TAILNET }}
+          oauth-client-id: ${{ vars.TS_TEST_CLIENT_ID }}
+          audience: ${{ vars.TS_TEST_AUDIENCE }}
+          policy-file: tailscale/policy.hujson
+          action: test
+      - name: Apply the policy
+        if: github.event_name == 'push'
+        uses: tailscale/gitops-acl-action@5a4a17f5708e9bf96f4ee915a95e9f83c2eebe1a # v1.5.2
+        with:
+          tailnet: ${{ vars.TS_TAILNET }}
+          oauth-client-id: ${{ vars.TS_APPLY_CLIENT_ID }}
+          audience: ${{ vars.TS_APPLY_AUDIENCE }}
+          policy-file: tailscale/policy.hujson
+          action: apply
