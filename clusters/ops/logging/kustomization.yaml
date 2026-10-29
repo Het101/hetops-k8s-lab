@@ -7,6 +7,7 @@ resources:
   - sealed-user-lab-shipper.yaml
   - sealed-user-gatus-watcher.yaml
   - sealed-cloudflared-token.yaml
+  - sealed-r2.yaml
   - elasticsearch.yaml
   - kibana.yaml
   - cloudflared.yaml
@@ -18,7 +19,7 @@ secretGenerator:
     options: { disableNameSuffixHash: true }
 configMapGenerator:
   - name: es-setup
-    files: [setup/setup.sh, setup/ilm-logs-lab-7d.json, setup/template-logs-lab.json, setup/repo-local.json, setup/slm-nightly-all.json]
+    files: [setup/setup.sh, setup/ilm-logs-lab-7d.json, setup/template-logs-lab.json, setup/repo-local.json, setup/slm-nightly-all.json, setup/repo-r2.json, setup/slm-nightly-security.json]
     options: { disableNameSuffixHash: true }
   - name: kibana-objects
     files: [kibana-objects/import.sh, kibana-objects/data-view-lab-logs.json, kibana-objects/rules.ndjson]

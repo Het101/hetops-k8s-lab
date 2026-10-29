@@ -1,0 +1,7 @@
+{
+  "schedule": "0 45 1 * * ?",
+  "name": "<nightly-security-{now/d}>",
+  "repository": "r2",
+  "config": {"indices": ["logs-lab-security", ".internal.alerts-security.alerts-*"], "include_global_state": false, "ignore_unavailable": true},
+  "retention": {"expire_after": "30d", "min_count": 5, "max_count": 35}
+}

@@ -12,6 +12,8 @@ spec:
   http:
     tls:
       certificate: { secretName: ops-es-http-tls }   # tls.crt, tls.key, ca.crt from git (sealed)
+  secureSettings:
+    - secretName: ops-es-r2   # s3.client.r2.access_key / secret_key into the keystore
   auth:
     roles: [{ secretName: ops-es-roles }]
     fileRealm:
