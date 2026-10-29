@@ -1,0 +1,7 @@
+{
+  "schedule": "0 30 1 * * ?",
+  "name": "<nightly-all-{now/d}>",
+  "repository": "local",
+  "config": {"indices": ["logs-lab-*"], "include_global_state": false},
+  "retention": {"expire_after": "30d", "min_count": 5, "max_count": 35}
+}
