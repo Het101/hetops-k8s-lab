@@ -10,7 +10,12 @@ resources:
   - elasticsearch.yaml
   - kibana.yaml
   - cloudflared.yaml
+  - setup/job.yaml
 secretGenerator:
   - name: ops-es-roles
     files: [roles.yml]
+    options: { disableNameSuffixHash: true }
+configMapGenerator:
+  - name: es-setup
+    files: [setup/setup.sh, setup/ilm-logs-lab-7d.json, setup/template-logs-lab.json, setup/repo-local.json, setup/slm-nightly-all.json]
     options: { disableNameSuffixHash: true }

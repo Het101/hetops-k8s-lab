@@ -1,0 +1,8 @@
+{
+  "index_patterns": ["logs-lab-*"],
+  "data_stream": {},
+  "priority": 200,
+  "composed_of": ["logs@mappings", "ecs@mappings"],
+  "template": {"settings": {"number_of_replicas": 0, "index.lifecycle.name": "logs-lab-7d"}},
+  "_meta": {"description": "The lab's logs (sub-project 2): one node, 7 days. In git: clusters/ops/logging/setup."}
+}
