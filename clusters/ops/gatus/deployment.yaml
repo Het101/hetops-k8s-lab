@@ -13,7 +13,7 @@ spec:
     metadata:
       labels: { app: gatus }
       annotations:
-        hetops.dev/config-version: "5"  # bump to restart Gatus on a config change it does not pick up itself
+        hetops.dev/config-version: "6"  # bump to restart Gatus on a config change it does not pick up itself
     spec:
       automountServiceAccountToken: false   # Gatus never calls the Kubernetes API
       # The image is FROM scratch with no user, so the UID is set here. Bedrock (roles/argocd) owns /var/lib/gatus as
