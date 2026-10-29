@@ -14,6 +14,16 @@
     group: "65532"
     mode: "0700"
 
+# Elasticsearch (clusters/ops/logging) writes its nightly snapshots here (path.repo); the image runs as UID 1000,
+# group 0, and fsGroup does not apply to hostPath volumes. Only the directory, as for Gatus.
+- name: Elasticsearch's snapshot directory is owned by its user
+  ansible.builtin.file:
+    path: /var/lib/es-snapshots
+    state: directory
+    owner: "1000"
+    group: "0"
+    mode: "0770"
+
 - name: Read whether Argo CD is installed
   vars:
     ansible_python_interpreter: "{{ bedrock_api_python }}"
