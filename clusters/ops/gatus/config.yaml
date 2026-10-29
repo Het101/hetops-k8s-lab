@@ -92,6 +92,42 @@ data:
         url: https://lab.hetops.dev/timeline
         conditions: ["[STATUS] < 300", "[CERTIFICATE_EXPIRATION] > 336h"]
 
+      - <<: *check
+        name: Elasticsearch health
+        group: logs
+        interval: 5m
+        url: https://ops-logs-es-http.logging.svc:9200/_cluster/health
+        headers: { Authorization: "Basic ${ES_WATCHER_BASIC}" }
+        conditions: ["[STATUS] == 200", "[BODY].status != red", "[CERTIFICATE_EXPIRATION] > 720h"]
+      - <<: *check
+        name: Logs arriving from the lab
+        group: logs
+        interval: 5m
+        method: POST
+        url: https://ops-logs-es-http.logging.svc:9200/logs-lab-default/_count
+        headers: { Authorization: "Basic ${ES_WATCHER_BASIC}", Content-Type: application/json }
+        body: '{"query":{"range":{"@timestamp":{"gte":"now-10m"}}}}'
+        conditions: ["[STATUS] == 200", "[BODY].count > 0"]
+      - <<: *check
+        name: Nightly snapshot (all logs, local)
+        group: logs
+        interval: 5m
+        method: POST
+        url: https://ops-logs-es-http.logging.svc:9200/.slm-history-*/_count
+        headers: { Authorization: "Basic ${ES_WATCHER_BASIC}", Content-Type: application/json }
+        body: '{"query":{"bool":{"filter":[{"term":{"policy":"nightly-all"}},{"term":{"success":true}},{"term":{"operation":"CREATE"}},{"range":{"@timestamp":{"gte":"now-26h"}}}]}}}'
+        conditions: ["[STATUS] == 200", "[BODY].count > 0"]
+      - <<: *check
+        name: Nightly snapshot (security, R2)
+        group: logs
+        interval: 5m
+        enabled: false              # enabled in Task 8 (the R2 policy does not exist yet)
+        method: POST
+        url: https://ops-logs-es-http.logging.svc:9200/.slm-history-*/_count
+        headers: { Authorization: "Basic ${ES_WATCHER_BASIC}", Content-Type: application/json }
+        body: '{"query":{"bool":{"filter":[{"term":{"policy":"nightly-security"}},{"term":{"success":true}},{"term":{"operation":"CREATE"}},{"range":{"@timestamp":{"gte":"now-26h"}}}]}}}'
+        conditions: ["[STATUS] == 200", "[BODY].count > 0"]
+
     # The lab's Alertmanager pushes its always-firing Watchdog alert here about every 2 minutes. No push for 5 minutes
     # means the lab's alerting (or the lab) is down. Key: watchers_lab-alerting.
     external-endpoints:

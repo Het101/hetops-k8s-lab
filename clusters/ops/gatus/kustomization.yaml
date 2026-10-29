@@ -6,3 +6,9 @@ resources:
   - config.yaml
   - sealed-gatus-secrets.yaml
   - deployment.yaml
+configMapGenerator:
+  - name: es-ca
+    files:
+      - ca.crt=es-ca.crt
+    options:
+      disableNameSuffixHash: true
