@@ -22,7 +22,7 @@
 	"tests": [
 		{
 			"src":    "tag:lab",
-			"accept": ["tag:ops:8080"],
+			"accept": ["tag:ops:8080", "tag:ops:22"],
 			"deny":   ["tag:ops:22", "tag:ops:6443", "tag:ops:9200"],
 		},
 		{
@@ -31,7 +31,7 @@
 		},
 		{
 			"src":    "hetpatidar09@gmail.com",
-			"accept": ["tag:ops:8080"],
+			"accept": ["tag:ops:8080", "tag:ops:22"],
 			"deny":   ["tag:ops:22", "tag:lab:22", "tag:lab:6443", "tag:lab:3001"],
 		},
 	],
