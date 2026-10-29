@@ -120,4 +120,4 @@ spec:
         - { name: varlogpods, hostPath: { path: /var/log/pods } }
         - { name: ops-es-ca, configMap: { name: ops-es-ca } }
         - { name: k8s-audit, hostPath: { path: /var/log/kubernetes/audit, type: DirectoryOrCreate } }
-        # ECK also adds a beat-data hostPath (/var/lib/logging/lab-filebeat/filebeat-data) for the read positions; see docs/gameday.md.
+        # ECK also adds a beat-data hostPath (/var/lib/logging/ops-filebeat/filebeat-data) for the read positions; see docs/gameday.md.
