@@ -17,7 +17,7 @@ Each gets its own spec, plan and PRs. This spec is sub-project 0.
 | 0 | **Bedrock builds hetops-3 as the ops cluster** (this spec) | none |
 | 1 | Outside watcher: a second Uptime Kuma and probes, alerting even when the lab is down | 0 |
 | 2 | ELK moves: Elasticsearch and Kibana on hetops-3; Filebeat on the lab ships over Tailscale | 0 |
-| 3 | Coolify build server: Coolify builds images on hetops-3, apps still run on the lab | 0 |
+| 3 | ~~Coolify build server~~ redefined 29 Oct as **fast, graceful deploys** ([spec](2026-10-29-graceful-deploys-design.md)): builds cost the lab ~40 CPU-min a month, not worth root SSH into hetops-3 and a registry | 0 |
 | 4 | Keycloak: SSO and MFA for Grafana and Argo CD | 0, and 2 proven stable |
 
 ## Decisions (owner, 26 to 27 Oct)
