@@ -22,8 +22,8 @@
 	"tests": [
 		{
 			"src":    "tag:lab",
-			"accept": ["tag:ops:8080"],
-			"deny":   ["tag:ops:22", "tag:ops:6443", "tag:ops:9200"],
+			"accept": ["tag:ops:8080", "tag:ops:9200"],
+			"deny":   ["tag:ops:22", "tag:ops:6443", "tag:ops:9300"],
 		},
 		{
 			"src":  "tag:ops",
