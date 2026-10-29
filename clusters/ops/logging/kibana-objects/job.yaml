@@ -8,6 +8,7 @@ metadata:
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   backoffLimit: 6
+  activeDeadlineSeconds: 900   # a sick ES/Kibana fails the hook instead of hanging Argo
   template:
     spec:
       restartPolicy: OnFailure
