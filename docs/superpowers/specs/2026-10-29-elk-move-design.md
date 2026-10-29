@@ -37,7 +37,7 @@ hetops-3 (4 OCPU, 24 GB, 185 GB free disk, ops cluster using under 2 GiB) has th
   - repository `local`: type `fs`, a hostPath `/var/lib/es-snapshots` owned by Elasticsearch's UID (Bedrock creates it, as with Gatus); `path.repo` set accordingly. Policy `nightly-all` at 01:30 UTC: all `logs-lab-*`, retention 30 days (min 5, max 35 snapshots).
   - repository `r2`: type `s3`, endpoint `https://{account-id}.r2.cloudflarestorage.com` (the owner's Cloudflare account ID, not secret, in the repository's config), bucket `hetops-logs-security`, path-style access; access key and secret go into Elasticsearch's keystore through ECK `secureSettings` from a SealedSecret. Policy `nightly-security` at 01:45 UTC: `logs-lab-security` and `.internal.alerts-security.alerts-*`, retention 30 days.
 - **Kibana as code:** `clusters/ops/logging/kibana-objects/` holds the exported NDJSON (data views, saved searches) and the detection rules (export format). An Argo PostSync Job imports them through Kibana's saved-objects and detection-rules import APIs with overwrite. A change made only by clicking is reset on the next sync; changes go through a PR (export, commit).
-- **The write-only key:** a Job creates a role `lab-shipper` (index privileges `create_doc`, `auto_configure` on `logs-lab-*`, nothing else) and an API key for it. That key, with ECK's CA certificate, is sealed with the **lab's** controller for the lab.
+- **The write-only key:** a file-realm user `lab-shipper` with role `lab_shipper` (Addendum 1). Its password, with the CA certificate, is sealed with the **lab's** controller for the lab.
 
 ### On the lab
 
@@ -51,7 +51,7 @@ hetops-3 (4 OCPU, 24 GB, 185 GB free disk, ops cluster using under 2 GiB) has th
 ### Watching it
 
 - **Gatus (hetops-3):** a check on `https://100.89.67.82:9200/_cluster/health` (status not `red`; a read-only monitoring API key), and a check that reads `_slm/stats` and alerts when either policy has had no success for 26 hours. Telegram, as for the other checks.
-- **Lab Prometheus:** an alert when `ops-filebeat` reports output errors for 10 minutes (Filebeat's monitoring metrics).
+- **Freshness:** a Gatus check counts `logs-lab-default` documents from the last 10 minutes and alerts at zero (see Addendum 1).
 
 ## When things go wrong
 
@@ -96,3 +96,10 @@ hetops-3 (4 OCPU, 24 GB, 185 GB free disk, ops cluster using under 2 GiB) has th
 ## Cost
 
 Nothing new: the tunnel is free; R2 holds about 3 GB, inside the free 10 GB; no Oracle resource is added (hetops-3's existing disk).
+
+## Addendum 1, 29 Oct: three choices made while planning
+
+- **File-realm users, not an API key made by a Job.** ECK reads users and roles from Secrets (`spec.auth.fileRealm`, `spec.auth.roles`), so the shipper's and the watcher's identities are declared in git like everything else, with no imperative step and nothing to recreate after a rebuild. Users: `lab-shipper` (role `lab_shipper`: cluster `monitor`, `read_ilm`; `create_doc`, `auto_configure`, `view_index_metadata` on `logs-lab-*`) and `gatus-watcher` (role `gatus_watcher`: cluster `monitor`, `read_slm`; `read` on `logs-lab-*` and `.slm-history-*`). Rotation: new password, reseal both sides.
+- **A CA in git, not ECK's self-signed certificate.** ECK's self-signed CA is regenerated on a rebuild and every client would need its new certificate. Instead a CA (10 years) and a server certificate (2 years, SANs `100.89.67.82` and `ops-logs-es-http.logging.svc`) are made once; the key is sealed for hetops-3 and the CA certificate is committed where clients read it (the lab's `ops-filebeat`, Gatus). Gatus alerts when the server certificate has under 30 days left; renewing = a new certificate from the same CA, resealed.
+- **Freshness in Gatus instead of a Filebeat alert in the lab's Prometheus.** Filebeat's metrics are not in Prometheus format, so the alert would need an exporter on the lab. A Gatus check that counts `logs-lab-default` documents from the last 10 minutes proves the whole path (lab Filebeat, Tailscale, Elasticsearch) with nothing new on the lab.
+- **Storage on hetops-3.** It has no storage provisioner; `local-path-provisioner` v0.0.30 (the lab's version) is installed through Argo from git.

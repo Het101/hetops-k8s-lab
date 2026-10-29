@@ -11,6 +11,8 @@
 	"grants": [
 		// The lab's Alertmanager heartbeat and Uptime Kuma's "Ops watcher" monitor reach Gatus.
 		{"src": ["tag:lab"], "dst": ["tag:ops"], "ip": ["tcp:8080"]},
+		// The lab's ops-filebeat ships logs to Elasticsearch on hetops-3 (sub-project 2). 9300 (transport) stays closed.
+		{"src": ["tag:lab"], "dst": ["tag:ops"], "ip": ["tcp:9200"]},
 		// tailscale ping and ordinary ping between the two servers, for troubleshooting.
 		{"src": ["tag:lab"], "dst": ["tag:ops"], "ip": ["icmp:*"]},
 		{"src": ["tag:ops"], "dst": ["tag:lab"], "ip": ["icmp:*"]},
