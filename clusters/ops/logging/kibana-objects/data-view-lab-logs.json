@@ -1,0 +1,1 @@
+{"override": true, "data_view": {"id": "lab-logs", "name": "Lab logs", "title": "logs-lab-*", "timeFieldName": "@timestamp"}}

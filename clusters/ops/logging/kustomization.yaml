@@ -11,6 +11,7 @@ resources:
   - kibana.yaml
   - cloudflared.yaml
   - setup/job.yaml
+  - kibana-objects/job.yaml
 secretGenerator:
   - name: ops-es-roles
     files: [roles.yml]
@@ -18,4 +19,7 @@ secretGenerator:
 configMapGenerator:
   - name: es-setup
     files: [setup/setup.sh, setup/ilm-logs-lab-7d.json, setup/template-logs-lab.json, setup/repo-local.json, setup/slm-nightly-all.json]
+    options: { disableNameSuffixHash: true }
+  - name: kibana-objects
+    files: [kibana-objects/import.sh, kibana-objects/data-view-lab-logs.json, kibana-objects/rules.ndjson]
     options: { disableNameSuffixHash: true }
