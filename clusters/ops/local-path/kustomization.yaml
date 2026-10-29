@@ -1,0 +1,12 @@
+# Rancher's local-path provisioner, the lab's version: a PVC becomes a folder under /opt/local-path-provisioner on
+# hetops-3's disk. The lab installed it by hand; here it is in git.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.30/deploy/local-path-storage.yaml
+patches:
+  - target: { kind: StorageClass, name: local-path }
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value: { storageclass.kubernetes.io/is-default-class: "true" }

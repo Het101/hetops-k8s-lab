@@ -1,0 +1,16 @@
+# Storage for the ops cluster (sub-project 2): Elasticsearch's data volume, later Keycloak's database.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: local-path
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: clusters/ops/local-path
+  destination: { server: https://kubernetes.default.svc, namespace: local-path-storage }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    retry: { limit: 10, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }
