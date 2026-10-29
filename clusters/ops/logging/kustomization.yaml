@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: logging
+resources:
+  - namespace.yaml
+  - sealed-es-http-tls.yaml
+  - sealed-user-lab-shipper.yaml
+  - sealed-user-gatus-watcher.yaml
+  - sealed-cloudflared-token.yaml
+  - elasticsearch.yaml
+  - kibana.yaml
+  - cloudflared.yaml
+secretGenerator:
+  - name: ops-es-roles
+    files: [roles.yml]
+    options: { disableNameSuffixHash: true }

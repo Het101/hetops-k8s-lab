@@ -1,0 +1,53 @@
+# Elasticsearch for the lab's logs, on hetops-3 (sub-project 2). One node; reachable from the lab only over
+# Tailscale (hostPort bound to 100.89.67.82), with a certificate from the CA in es-ca.crt.
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: ops-logs
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  version: 9.5.5
+  http:
+    tls:
+      certificate: { secretName: ops-es-http-tls }   # tls.crt, tls.key, ca.crt from git (sealed)
+  auth:
+    roles: [{ secretName: ops-es-roles }]
+    fileRealm:
+      - secretName: ops-es-user-lab-shipper
+      - secretName: ops-es-user-gatus-watcher
+  nodeSets:
+    - name: default
+      count: 1
+      config:
+        node.store.allow_mmap: false
+        cluster.routing.allocation.disk.watermark.low: 30gb
+        cluster.routing.allocation.disk.watermark.high: 25gb
+        cluster.routing.allocation.disk.watermark.flood_stage: 20gb
+        path.repo: [/usr/share/elasticsearch/snapshots]
+        s3.client.r2.endpoint: https://1548e7aeeb9deeca1e7b3b3bd831b0b9.r2.cloudflarestorage.com
+        s3.client.r2.path_style_access: true
+        s3.client.r2.region: auto
+      podTemplate:
+        spec:
+          containers:
+            - name: elasticsearch
+              env: [{ name: ES_JAVA_OPTS, value: "-Xms2g -Xmx2g" }]   # heap = half the memory limit
+              ports:
+                - { name: https, containerPort: 9200, hostPort: 9200, hostIP: 100.89.67.82 }
+              resources:
+                requests: { cpu: 500m, memory: 4Gi }
+                limits: { memory: 4Gi }
+              volumeMounts:
+                - { name: snapshots, mountPath: /usr/share/elasticsearch/snapshots }
+          volumes:
+            # Bedrock (roles/argocd) creates it owned by 1000:0; Directory, so a missing one fails loudly.
+            - name: snapshots
+              hostPath: { path: /var/lib/es-snapshots, type: Directory }
+      volumeClaimTemplates:
+        - metadata: { name: elasticsearch-data }
+          spec:
+            storageClassName: local-path
+            accessModes: [ReadWriteOnce]
+            resources: { requests: { storage: 40Gi } }

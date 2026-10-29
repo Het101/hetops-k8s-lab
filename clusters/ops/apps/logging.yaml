@@ -1,0 +1,29 @@
+# Elasticsearch and Kibana for the lab's logs (sub-project 2): the ECK operator from Elastic's chart, the cluster
+# from clusters/ops/logging. Same versions as the lab.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: logging
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://helm.elastic.co
+      chart: eck-operator
+      targetRevision: 3.5.0
+      helm:
+        releaseName: eck
+        valuesObject:
+          managedNamespaces: [logging]
+          resources:
+            requests: { cpu: 50m, memory: 150Mi }
+            limits: { memory: 300Mi }
+          telemetry: { disabled: true }
+    - repoURL: https://github.com/Het101/hetops-k8s-lab.git
+      targetRevision: main
+      path: clusters/ops/logging
+  destination: { server: https://kubernetes.default.svc, namespace: logging }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]   # the ECK CRDs are too big for client-side apply
+    retry: { limit: 10, backoff: { duration: 15s, factor: 2, maxDuration: 3m } }
