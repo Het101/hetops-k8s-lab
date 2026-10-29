@@ -13,7 +13,7 @@ spec:
     metadata:
       labels: { app: gatus }
       annotations:
-        hetops.dev/config-version: "4"  # bump to restart Gatus on a config change it does not pick up itself
+        hetops.dev/config-version: "5"  # bump to restart Gatus on a config change it does not pick up itself
     spec:
       automountServiceAccountToken: false   # Gatus never calls the Kubernetes API
       # The image is FROM scratch with no user, so the UID is set here. Bedrock (roles/argocd) owns /var/lib/gatus as
@@ -30,11 +30,16 @@ spec:
             - containerPort: 8080
               hostPort: 8080
               hostIP: 100.89.67.82
+          env:
+            # Go loads every cert in this directory on top of the system bundle, so the public checks keep their roots
+            # and the Elasticsearch checks trust the logging cluster's CA.
+            - { name: SSL_CERT_DIR, value: /etc/es-ca }
           envFrom:
             - secretRef: { name: gatus-secrets }
           volumeMounts:
             - { name: config, mountPath: /config }
             - { name: data, mountPath: /data }
+            - { name: es-ca, mountPath: /etc/es-ca, readOnly: true }
           readinessProbe:
             httpGet: { path: /health, port: 8080 }
             periodSeconds: 10
@@ -50,6 +55,8 @@ spec:
             readOnlyRootFilesystem: true
             capabilities: { drop: [ALL] }
       volumes:
+        - name: es-ca
+          configMap: { name: es-ca }
         - name: config
           configMap: { name: gatus-config }
         # One node, so a hostPath is the node's disk: history and open alerts, lost if hetops-3 is rebuilt. Type
