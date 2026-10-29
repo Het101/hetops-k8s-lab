@@ -1,9 +1,10 @@
 # The tailnet policy as code (29 Oct): tailscale/policy.hujson is tested on every pull request and pushed to
 # Tailscale when it reaches main. No stored secret: GitHub's OIDC token is exchanged for a short-lived Tailscale
 # token through two trust credentials (Tailscale admin, Settings, Trust credentials), whose client ID and audience
-# are not secret and live in repository variables:
-#   test  credential: subject repo:Het101/hetops-k8s-lab:pull_request,        scope policy_file:read
-#   apply credential: subject repo:Het101/hetops-k8s-lab:ref:refs/heads/main, scope policy_file
+# are not secret and live in repository variables. GitHub signs this repo's tokens with the immutable subject (owner
+# and repo with their numeric IDs, so a deleted and re-created repo of the same name cannot use the credentials):
+#   test  credential: subject repo:Het101@80185163/hetops-k8s-lab@1409803636:pull_request,        scope policy_file:read
+#   apply credential: subject repo:Het101@80185163/hetops-k8s-lab@1409803636:ref:refs/heads/main, scope policy_file
 name: tailscale
 
 on:
