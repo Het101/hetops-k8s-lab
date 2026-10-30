@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: control-agent-token
+  namespace: control
+spec:
+  encryptedData:
+    token: AgBNAO4so3AskeicMYQaqX7v0l6SbhLhX9DsBzuaAHLyXYmy81sdzLgVqUE5UhFk4b/HH9aA16izABsSP0Jh+wjoBCwvkifECrqE0Mjp2A8gf/CW8Q0FpGbnCSQ3nEiAx7EtdRmDrZdJnZ48FziO5b8XZUc8i/C8KjQvZgVcB/5kGq0WphSpaeSVqc3994GTLwZX8A0DXw4nXJXcjTWtFQO5kdyLvSNMKLcqh90+0w1CLUj4efA0cLVCofh/viRln30ZvzFRYsa9tTmq6ZV3b+suc/dnptms1r5/YrxYmA7VrSydPr48+GzbRKa+KBbhhlBlwsicxIqYSOyXXG6ZW/JrPwyOoDJ747l6dhMxszD2mGPbtxj3YeisynkujT1g8YzxUU6t9KIdlrvAl9ibtg7iHvJY9LlKHtsT5UEcw2e0SRfa+T260w76fKifz3zZ7mnGD0CqEZvCwiOoWmRMNGfGpNoAe5PW3x/747HNQWIV8vuBndGrJph0x6ubRecKj03q97bG6+T+m3R5qMZZ0D4Cvoki7UauJz6BPg/8QDXmoJ8cP3GHupfI3A1RpHK+flXrIghjhA0OD9KsQpxUeAobtwpM8riEBWrOLmptPApm83/4VnEyFJS5aUBs5Ced/EvMVvnj2ieUE/pKcQC6C23/e+oT/Yv631vXleueBrLQLbM976TVSDHxQxAT4wc3UPWaf/AFGAV2whImCPEqAQIgYNmn2NcoecueO+UyhKtuTZzjX5S051npoV39T51/BwlrE8OpNZBSi33zxmWmTyN3
+  template:
+    metadata:
+      name: control-agent-token
+      namespace: control
