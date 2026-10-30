@@ -1,0 +1,10 @@
+# In-cluster address for Gatus's read API (HetOps Control's ops agent: GET /api/v1/endpoints/statuses and
+# /uptimes/24h). The hostPort keeps serving the tailnet; this adds nothing on the public IP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gatus
+spec:
+  selector: { app: gatus }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }

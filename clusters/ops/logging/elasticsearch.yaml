@@ -19,6 +19,7 @@ spec:
     fileRealm:
       - secretName: ops-es-user-lab-shipper
       - secretName: ops-es-user-gatus-watcher
+      - secretName: ops-es-user-control-reader
   nodeSets:
     - name: default
       count: 1
