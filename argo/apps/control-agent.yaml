@@ -1,0 +1,28 @@
+# HetOps Control (Het101/hetops-control): the lab's agent. It reads this cluster and serves it over TLS on the
+# tailnet only, to the center on hetops-3 (clusters/ops/control).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: control-agent
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "3" }
+spec:
+  project: control
+  source:
+    repoURL: https://github.com/Het101/hetops-k8s-lab.git
+    targetRevision: main
+    path: platform/control-agent
+  destination: { server: https://kubernetes.default.svc, namespace: control }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: chaos-lab
+        # The pod meets "restricted" except for its hostPort (bound to the Tailscale address), which every level
+        # but privileged refuses. warn: restricted keeps that one exception visible on every sync.
+        # Not meshed: no hetops.dev/mesh label, so the Linkerd injector skips it; the agent only talks to the API
+        # server and to the center across the tailnet, where TLS and the bearer token protect it.
+        pod-security.kubernetes.io/enforce: privileged
+        pod-security.kubernetes.io/warn: restricted
+    retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }

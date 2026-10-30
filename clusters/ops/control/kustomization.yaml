@@ -9,8 +9,11 @@ resources:
   - sealed-agent-tokens.yaml
   - agent.yaml
   - center.yaml
+  - networkpolicy.yaml
 configMapGenerator:
-  # the ops CA (a copy of clusters/ops/logging/es-ca.crt): it signed the lab agent's server certificate
+  # the ops CA: it signed the lab agent's server certificate. A copy of clusters/ops/logging/es-ca.crt (kustomize
+  # cannot load files outside this directory): keep the two in sync when the CA is rotated. The PEM itself carries no
+  # comment, so the center reads it exactly as openssl wrote it.
   - name: ops-ca
     namespace: control
     files:

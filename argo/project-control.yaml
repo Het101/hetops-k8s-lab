@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject                  # HetOps Control's lab agent: a ClusterRole and a Role in argocd, which "lab" must not
+metadata:
+  name: control
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }   # the project must exist before the app that uses it
+spec:
+  description: HetOps Control's lab agent (read-only view of the lab for the center on hetops-3)
+  sourceRepos:
+  - https://github.com/Het101/hetops-k8s-lab.git
+  destinations:
+  - { server: https://kubernetes.default.svc, namespace: control }
+  - { server: https://kubernetes.default.svc, namespace: argocd }       # only the Role that lists Applications
+  clusterResourceWhitelist:
+  - { group: "", kind: Namespace }                     # CreateNamespace + managedNamespaceMetadata
+  - { group: rbac.authorization.k8s.io, kind: ClusterRole }
+  - { group: rbac.authorization.k8s.io, kind: ClusterRoleBinding }
+  namespaceResourceWhitelist:                          # argocd is a destination, so name exactly what may land
+  - { group: "", kind: ServiceAccount }
+  - { group: apps, kind: Deployment }
+  - { group: bitnami.com, kind: SealedSecret }
+  - { group: rbac.authorization.k8s.io, kind: Role }
+  - { group: rbac.authorization.k8s.io, kind: RoleBinding }

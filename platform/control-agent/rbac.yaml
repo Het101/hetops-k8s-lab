@@ -1,0 +1,52 @@
+# The same as the ops agent's (clusters/ops/control/rbac.yaml). What the agent reads, and nothing else
+# (apps/agent/src/sources/kubernetes.ts in hetops-control): lists of nodes, pods, deployments, statefulsets, daemonsets
+# and the Argo CD Applications in argocd, plus the kubelet summary through nodes/proxy. GET /version is already
+# allowed to every authenticated client by system:discovery.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: control-agent
+  namespace: control
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: control-agent-read
+rules:
+  - apiGroups: [""]
+    resources: [nodes, pods]
+    verbs: [list]
+  - apiGroups: [""]
+    resources: [nodes/proxy]
+    verbs: [get]            # the agent only GETs /api/v1/nodes/<node>/proxy/stats/summary
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets, daemonsets]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: control-agent-read
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: control-agent-read }
+subjects:
+  - { kind: ServiceAccount, name: control-agent, namespace: control }
+---
+# Applications live only in argocd, so a Role there rather than a cluster-wide read.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: control-agent-read
+  namespace: argocd
+rules:
+  - apiGroups: [argoproj.io]
+    resources: [applications]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: control-agent-read
+  namespace: argocd
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: control-agent-read }
+subjects:
+  - { kind: ServiceAccount, name: control-agent, namespace: control }
