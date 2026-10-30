@@ -5,6 +5,8 @@ metadata:
   namespace: argocd
   annotations: { argocd.argoproj.io/sync-wave: "-1" }   # the project must exist before the app that uses it
 spec:
+  # Scope, not a security boundary: it limits what this repo path can make Argo apply. Anyone who can push to main can
+  # still edit this project; the real guards are branch protection, CI, and the agent's read-only RBAC.
   description: HetOps Control's lab agent (read-only view of the lab for the center on hetops-3)
   sourceRepos:
   - https://github.com/Het101/hetops-k8s-lab.git
@@ -18,6 +20,7 @@ spec:
   namespaceResourceWhitelist:                          # argocd is a destination, so name exactly what may land
   - { group: "", kind: ServiceAccount }
   - { group: apps, kind: Deployment }
+  - { group: networking.k8s.io, kind: NetworkPolicy }
   - { group: bitnami.com, kind: SealedSecret }
   - { group: rbac.authorization.k8s.io, kind: Role }
   - { group: rbac.authorization.k8s.io, kind: RoleBinding }
