@@ -32,13 +32,14 @@
 			"deny":   ["tag:ops:22", "tag:ops:6443", "tag:ops:9300"],
 		},
 		{
-			"src":  "tag:ops",
-			"deny": ["tag:lab:22", "tag:lab:6443", "tag:lab:80", "tag:lab:443", "tag:lab:3001"],
+			"src":    "tag:ops",
+			"accept": ["tag:lab:7443"],
+			"deny":   ["tag:lab:22", "tag:lab:6443", "tag:lab:80", "tag:lab:443", "tag:lab:3001"],
 		},
 		{
 			"src":    "hetpatidar09@gmail.com",
 			"accept": ["tag:ops:8080", "tag:lab:53"],
-			"deny":   ["tag:ops:22", "tag:lab:22", "tag:lab:6443", "tag:lab:3001"],
+			"deny":   ["tag:ops:22", "tag:lab:22", "tag:lab:6443", "tag:lab:3001", "tag:lab:7443"],
 		},
 	],
 }
