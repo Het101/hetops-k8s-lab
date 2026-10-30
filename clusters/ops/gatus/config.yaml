@@ -91,6 +91,12 @@ data:
         group: watchers
         url: https://lab.hetops.dev/timeline
         conditions: ["[STATUS] < 300", "[CERTIFICATE_EXPIRATION] > 336h"]
+      # from inside the cluster: control.hetops.dev itself is behind Cloudflare Access
+      - <<: *check
+        name: HetOps Control
+        group: watchers
+        url: http://control-center.control.svc:8080/healthz
+        conditions: ["[STATUS] == 200"]
 
       - <<: *check
         name: Elasticsearch health

@@ -1,0 +1,19 @@
+# HetOps Control (stage 1a): the center and the ops agent. No top-level `namespace:` here: rbac.yaml puts a Role in
+# argocd, which kustomize would otherwise move into control.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - sealed-agent-token.yaml
+  - sealed-agent-tokens.yaml
+  - agent.yaml
+  - center.yaml
+configMapGenerator:
+  # the ops CA (a copy of clusters/ops/logging/es-ca.crt): it signed the lab agent's server certificate
+  - name: ops-ca
+    namespace: control
+    files:
+      - ca.crt=ops-ca.crt
+    options:
+      disableNameSuffixHash: true

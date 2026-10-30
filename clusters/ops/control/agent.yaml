@@ -1,0 +1,60 @@
+# The ops agent: reads this cluster and serves it to the center over plain HTTP inside the cluster. The lab agent
+# (deployed by the lab) is the one with TLS, since its traffic crosses the tailnet.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-agent
+  namespace: control
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: control-agent }
+  template:
+    metadata:
+      labels: { app: control-agent }
+    spec:
+      serviceAccountName: control-agent
+      automountServiceAccountToken: true   # the agent is a Kubernetes API client (rbac.yaml)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: agent
+          # hetops-control main e3c4c70efc52aaf87a4ebd52503f33285010239f
+          image: ghcr.io/het101/hetops-control-agent@sha256:8c217b085ff8d22f7f8b6e29ee7a4886570f8e3390f55bd2cce69f17f46db8ad
+          env:
+            - { name: SERVER, value: ops }
+            - { name: AGENT_TOKEN_FILE, value: /secrets/token }
+          ports:
+            - { name: http, containerPort: 7443 }
+          volumeMounts:
+            - { name: token, mountPath: /secrets, readOnly: true }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 30
+            failureThreshold: 4
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 192Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: token
+          secret: { secretName: control-agent-token }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: control-agent
+  namespace: control
+spec:
+  selector: { app: control-agent }
+  ports:
+    - { name: http, port: 7443, targetPort: http }
