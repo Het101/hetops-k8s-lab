@@ -43,5 +43,23 @@
 			"accept": ["tag:ops:8080", "tag:lab:53"],
 			"deny":   ["tag:ops:22", "tag:lab:22", "tag:lab:6443", "tag:lab:3001", "tag:lab:7443"],
 		},
+		// Staging (vm2): only the center on hetops-3 reaches its agent; staging itself reaches nothing.
+		{
+			"src":    "tag:ops",
+			"accept": ["tag:staging:7443"],
+			"deny":   ["tag:staging:22", "tag:staging:6443", "tag:staging:10250"],
+		},
+		{
+			"src":  "tag:staging",
+			"deny": ["tag:ops:8080", "tag:ops:9200", "tag:ops:22", "tag:lab:7443", "tag:lab:53", "tag:lab:22"],
+		},
+		{
+			"src":  "tag:lab",
+			"deny": ["tag:staging:7443", "tag:staging:22", "tag:staging:6443"],
+		},
+		{
+			"src":  "hetpatidar09@gmail.com",
+			"deny": ["tag:staging:7443", "tag:staging:22", "tag:staging:6443"],
+		},
 	],
 }
