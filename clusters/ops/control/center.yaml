@@ -35,8 +35,8 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: center
-          # hetops-control main 8b746127a0b45916a72ee4a7262eaef12d9ac09c
-          image: ghcr.io/het101/hetops-control-center@sha256:1b13d73463c016f87347582b57e2ea7e87dd660b4f93ea0b673b5a459f3ff2d6
+          # hetops-control main 01e6e1de04b55a2ce8a7fcf9a3f1a14b8fda9574
+          image: ghcr.io/het101/hetops-control-center@sha256:373189009610a45724e09fa90c51e88055e092bcf7f66987138ab6b6b7b4c9b7
           env:
             # tokens come from files (Secret control-agent-tokens); the lab agent's certificate is signed by the ops CA
             - name: AGENTS
