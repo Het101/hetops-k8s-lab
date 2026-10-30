@@ -1,5 +1,5 @@
 # HetOps Control's lab agent (argo/apps/control-agent.yaml). No top-level `namespace:`: rbac.yaml puts a Role in
-# argocd, which kustomize would otherwise move into control. Both secrets are sealed for namespace control only.
+# argocd, which kustomize would otherwise move into control. The secrets are sealed for namespace control only.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -7,6 +7,7 @@ resources:
   - sealed-agent-token.yaml
   - sealed-agent-tls.yaml
   - sealed-agent-crowdsec.yaml      # the CrowdSec bouncer key (read-only)
+  - sealed-agent-coolify.yaml       # the Coolify API token (read-only)
   - crowdsec-ca.yaml
   - agent.yaml
   - networkpolicy.yaml

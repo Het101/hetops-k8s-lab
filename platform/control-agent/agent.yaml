@@ -25,8 +25,8 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: agent
-          # hetops-control main df0341b6b1cbf20f1bb55352955aa4f8f6cfad46 (the same image as the ops agent)
-          image: ghcr.io/het101/hetops-control-agent@sha256:880e2e9114485ca51d6c2fc546a31dec94b238ec10f76562f6e80f1e5e009a74
+          # hetops-control main ca30c835af96338fe54d2d729ea647d7ec4cd847 (the same image as the ops agent)
+          image: ghcr.io/het101/hetops-control-agent@sha256:abc26644f548b6aa0ce1ba7fa1365af409aba60f333b954a57a5ced02cef28db
           env:
             - { name: SERVER, value: lab }
             - { name: AGENT_TOKEN_FILE, value: /secrets/token/token }
@@ -41,6 +41,10 @@ spec:
             - { name: CROWDSEC_KEY_FILE, value: /secrets/crowdsec/key }
             - { name: CROWDSEC_CA_FILE, value: /etc/crowdsec-ca/ca.crt }
             - { name: BEDROCK_DIR, value: /bedrock }
+            # Coolify's API on the host: Docker publishes it on 0.0.0.0:8000, reached from the pod at the node's address
+            # (the bytes never leave the VM). The token is read-only (Coolify Keys & Tokens, "read"): no env values, no writes.
+            - { name: COOLIFY_URL, value: "http://10.0.0.11:8000" }
+            - { name: COOLIFY_TOKEN_FILE, value: /secrets/coolify/token }
           ports:
             - { name: https, containerPort: 7443, hostPort: 7443, hostIP: 100.93.151.22 }
           volumeMounts:
@@ -49,6 +53,7 @@ spec:
             - { name: crowdsec, mountPath: /secrets/crowdsec, readOnly: true }
             - { name: crowdsec-ca, mountPath: /etc/crowdsec-ca, readOnly: true }
             - { name: bedrock, mountPath: /bedrock, readOnly: true }
+            - { name: coolify, mountPath: /secrets/coolify, readOnly: true }
           readinessProbe:
             httpGet: { path: /healthz, port: https, scheme: HTTPS }
             periodSeconds: 10
@@ -70,6 +75,8 @@ spec:
           secret: { secretName: control-agent-tls }
         - name: crowdsec                    # a bouncer key (cscli bouncers add hetops-control): it can only read decisions
           secret: { secretName: control-agent-crowdsec }
+        - name: coolify                     # a Coolify API token with the "read" permission only
+          secret: { secretName: control-agent-coolify }
         - name: crowdsec-ca
           configMap: { name: control-agent-crowdsec-ca }
         # Bedrock's nightly drift results, one file per server ("clean" or "drift"), written by bedrock-drift.timer as ubuntu
