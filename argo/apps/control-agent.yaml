@@ -21,8 +21,10 @@ spec:
         app.kubernetes.io/part-of: chaos-lab
         # The pod meets "restricted" except for its hostPort (bound to the Tailscale address), which every level
         # but privileged refuses. warn: restricted keeps that one exception visible on every sync.
-        # Not meshed: no hetops.dev/mesh label, so the Linkerd injector skips it; the agent only talks to the API
-        # server and to the center across the tailnet, where TLS and the bearer token protect it.
+        # The hostPath of Bedrock's drift results (read-only) is the second exception, also warned.
+        # Not meshed: no hetops.dev/mesh label, so the Linkerd injector skips it. It talks to the API server, to the center
+        # across the tailnet (TLS and the bearer token), and reads Alertmanager, chaos-api, the timeline's owner port and the
+        # CrowdSec LAPI (TLS) in the cluster; chaos and timeline let it in by NetworkPolicy (meshed servers accept plain clients).
         pod-security.kubernetes.io/enforce: privileged
         pod-security.kubernetes.io/warn: restricted
     retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }

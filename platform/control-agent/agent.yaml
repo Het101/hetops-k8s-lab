@@ -32,11 +32,23 @@ spec:
             - { name: AGENT_TOKEN_FILE, value: /secrets/token/token }
             - { name: TLS_CERT_FILE, value: /secrets/tls/tls.crt }
             - { name: TLS_KEY_FILE, value: /secrets/tls/tls.key }
+            # The lab sources (hetops-control apps/agent/src/sources): each runs only when its setting is here. All read-only.
+            - { name: ALERTMANAGER_URL, value: "http://kps-kube-prometheus-stack-alertmanager.monitoring.svc:9093" }
+            - { name: CHAOS_URL, value: "http://chaos-api.chaos.svc" }                 # GET /chaos/status: the error budget
+            - { name: TIMELINE_URL, value: "http://timeline.timeline.svc:8081" }       # the owner port: GET /owner/timeline
+            # The LAPI's certificate names crowdsec-service.crowdsec; it is signed by the crowdsec CA (crowdsec-ca.yaml).
+            - { name: CROWDSEC_URL, value: "https://crowdsec-service.crowdsec:8080" }
+            - { name: CROWDSEC_KEY_FILE, value: /secrets/crowdsec/key }
+            - { name: CROWDSEC_CA_FILE, value: /etc/crowdsec-ca/ca.crt }
+            - { name: BEDROCK_DIR, value: /bedrock }
           ports:
             - { name: https, containerPort: 7443, hostPort: 7443, hostIP: 100.93.151.22 }
           volumeMounts:
             - { name: token, mountPath: /secrets/token, readOnly: true }
             - { name: tls, mountPath: /secrets/tls, readOnly: true }
+            - { name: crowdsec, mountPath: /secrets/crowdsec, readOnly: true }
+            - { name: crowdsec-ca, mountPath: /etc/crowdsec-ca, readOnly: true }
+            - { name: bedrock, mountPath: /bedrock, readOnly: true }
           readinessProbe:
             httpGet: { path: /healthz, port: https, scheme: HTTPS }
             periodSeconds: 10
@@ -56,3 +68,12 @@ spec:
           secret: { secretName: control-agent-token }
         - name: tls
           secret: { secretName: control-agent-tls }
+        - name: crowdsec                    # a bouncer key (cscli bouncers add hetops-control): it can only read decisions
+          secret: { secretName: control-agent-crowdsec }
+        - name: crowdsec-ca
+          configMap: { name: control-agent-crowdsec-ca }
+        # Bedrock's nightly drift results, one file per server ("clean" or "drift"), written by bedrock-drift.timer as ubuntu
+        # (0644, readable by the agent's uid). Mounted read-only; a hostPath is the second exception to "restricted" (warned).
+        # The lab is one node, so the pod always lands where the files are.
+        - name: bedrock
+          hostPath: { path: /home/ubuntu/.local/state/bedrock/hosts, type: Directory }

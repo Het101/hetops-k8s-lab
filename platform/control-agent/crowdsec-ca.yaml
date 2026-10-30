@@ -1,0 +1,22 @@
+# The public certificate of the CrowdSec LAPI's own CA (cert-manager: Certificate crowdsec-ca in crowdsec, from crowdsec-root-secret's
+# ca.crt; no key). The agent trusts it for that one call (CROWDSEC_CA_FILE). cert-manager renews the CA with a new key around
+# 24 Dec 2026 (90 days, renewed 30 days before 23 Jan 2027): the crowdsec source then fails loudly ("unable to verify") until this is
+# refreshed with: kubectl -n crowdsec get secret crowdsec-lapi-tls -o jsonpath='{.data.ca\.crt}' | base64 -d
+# sha256 fingerprint CF:FA:76:14:A8:32:40:E3:26:EB:2B:6B:9F:1E:68:FB:20:02:A2:6A:D8:37:D2:B1:86:C8:18:26:A2:FC:37:B3, valid to 23 Jan 2027.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: control-agent-crowdsec-ca
+  namespace: control
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIBcDCCARagAwIBAgIURlBmqkXkpWcUAkvA3jzFcjaIQawwCgYIKoZIzj0EAwIw
+    FjEUMBIGA1UEAxMLY3Jvd2RzZWMtY2EwHhcNMjYxMDI1MDkyNTU4WhcNMjcwMTIz
+    MDkyNTU4WjAWMRQwEgYDVQQDEwtjcm93ZHNlYy1jYTBZMBMGByqGSM49AgEGCCqG
+    SM49AwEHA0IABASZatEa/+Mdm1bNmCRh4TIWfb5Z6MEDJucJpR/xtOljEwUkSn6M
+    YZM1/oslm36vESe/geEpeYsIUbYBb6l4YeujQjBAMA4GA1UdDwEB/wQEAwICpDAP
+    BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBRU2LHfPa4SXT8tmWUufbn6CDbXPjAK
+    BggqhkjOPQQDAgNIADBFAiBQeNfSuu4wmgh6FHmxPMzczxISwhNMLAPsiSq/lAWb
+    ggIhAIep6KUgs49ZBuXcvjx9tvAjJe7SrIEH0fjSCv7cJWA1
+    -----END CERTIFICATE-----

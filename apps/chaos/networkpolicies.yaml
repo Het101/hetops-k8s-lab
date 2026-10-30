@@ -27,6 +27,10 @@ spec:
     - podSelector: { matchLabels: { app: chaos-selftest } }   # the nightly self-test (separate items = OR)
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }   # Prometheus scraping /metrics
     ports: [{ protocol: TCP, port: 8080 }, { protocol: TCP, port: 4143 }]   # 4143: Linkerd proxy (mTLS)
+  - from:                                # HetOps Control's lab agent reads GET /chaos/status (not meshed: plain 8080 only)
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: control } }
+      podSelector: { matchLabels: { app: control-agent } }
+    ports: [{ protocol: TCP, port: 8080 }]
   egress:
   - to:                                  # the clinic api pods: prober, load, /internal
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: clinic } }
