@@ -22,8 +22,8 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: agent
-          # hetops-control main 6f0c68d0ffb108c01dbe1d73a1db43bfa66e45fe
-          image: ghcr.io/het101/hetops-control-agent@sha256:fea9337d3b0d91bc3c2aee8ac0eb65ba86816ad28a2bc5cba827b18b6831e0c4
+          # hetops-control main ca30c835af96338fe54d2d729ea647d7ec4cd847
+          image: ghcr.io/het101/hetops-control-agent@sha256:abc26644f548b6aa0ce1ba7fa1365af409aba60f333b954a57a5ced02cef28db
           env:
             - { name: SERVER, value: ops }
             - { name: AGENT_TOKEN_FILE, value: /secrets/token }
