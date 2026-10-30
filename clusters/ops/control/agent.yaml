@@ -27,10 +27,17 @@ spec:
           env:
             - { name: SERVER, value: ops }
             - { name: AGENT_TOKEN_FILE, value: /secrets/token }
+            # ops sources (hetops-control apps/agent/src/sources/gatus.ts, elasticsearch.ts)
+            - { name: GATUS_URL, value: "http://gatus.watch.svc:8080" }
+            - { name: ES_URL, value: "https://ops-logs-es-http.logging.svc:9200" }
+            - { name: ES_AUTH_DIR, value: /es-reader }             # control-reader: role control_reader in logging/roles.yml
+            - { name: NODE_EXTRA_CA_CERTS, value: /ca/ca.crt }     # the ops CA signed the ES http certificate
           ports:
             - { name: http, containerPort: 7443 }
           volumeMounts:
             - { name: token, mountPath: /secrets, readOnly: true }
+            - { name: es-reader, mountPath: /es-reader, readOnly: true }
+            - { name: ops-ca, mountPath: /ca, readOnly: true }
           readinessProbe:
             httpGet: { path: /healthz, port: http }
             periodSeconds: 10
@@ -48,6 +55,10 @@ spec:
       volumes:
         - name: token
           secret: { secretName: control-agent-token }
+        - name: es-reader
+          secret: { secretName: control-es-reader, items: [{ key: username, path: username }, { key: password, path: password }] }
+        - name: ops-ca
+          configMap: { name: ops-ca }
 ---
 apiVersion: v1
 kind: Service

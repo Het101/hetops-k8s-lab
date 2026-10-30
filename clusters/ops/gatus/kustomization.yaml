@@ -6,6 +6,7 @@ resources:
   - config.yaml
   - sealed-gatus-secrets.yaml
   - deployment.yaml
+  - service.yaml
 configMapGenerator:
   - name: es-ca
     files:

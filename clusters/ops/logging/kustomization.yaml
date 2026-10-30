@@ -6,6 +6,7 @@ resources:
   - sealed-es-http-tls.yaml
   - sealed-user-lab-shipper.yaml
   - sealed-user-gatus-watcher.yaml
+  - sealed-user-control-reader.yaml
   - sealed-cloudflared-token.yaml
   - sealed-r2.yaml
   - elasticsearch.yaml

@@ -1,5 +1,5 @@
 # File-realm roles (spec Addendum 1). The lab's ops-filebeat can only add documents; Gatus can only read health,
-# snapshot status and counts.
+# snapshot status and counts; HetOps Control's ops agent reads health, SLM policies and the two lab streams' log flow.
 lab_shipper:
   cluster: [monitor, read_ilm]
   indices:
@@ -9,4 +9,9 @@ gatus_watcher:
   cluster: [monitor, read_slm]
   indices:
     - names: ["logs-lab-*", ".slm-history-*"]
+      privileges: [read]
+control_reader:
+  cluster: [monitor, read_slm]
+  indices:
+    - names: ["logs-lab-default", "logs-lab-security"]
       privileges: [read]
