@@ -7,3 +7,4 @@ resources:
   - sealed-agent-token.yaml
   - sealed-agent-tls.yaml
   - agent.yaml
+  - networkpolicy.yaml
