@@ -19,6 +19,7 @@ spec:
   - { group: rbac.authorization.k8s.io, kind: ClusterRoleBinding }
   namespaceResourceWhitelist:                          # argocd is a destination, so name exactly what may land
   - { group: "", kind: ServiceAccount }
+  - { group: "", kind: ConfigMap }                     # the CrowdSec LAPI's public CA certificate
   - { group: apps, kind: Deployment }
   - { group: networking.k8s.io, kind: NetworkPolicy }
   - { group: bitnami.com, kind: SealedSecret }

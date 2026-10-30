@@ -6,5 +6,7 @@ resources:
   - rbac.yaml
   - sealed-agent-token.yaml
   - sealed-agent-tls.yaml
+  - sealed-agent-crowdsec.yaml      # the CrowdSec bouncer key (read-only)
+  - crowdsec-ca.yaml
   - agent.yaml
   - networkpolicy.yaml

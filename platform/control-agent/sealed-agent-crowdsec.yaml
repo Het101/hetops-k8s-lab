@@ -1,0 +1,12 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: control-agent-crowdsec
+  namespace: control
+spec:
+  encryptedData:
+    key: AgBxDUJcjtXsPizBAcbtEB4UgnxiPdUdMenevbealckaHkHd+eNZ9I4Vz9n0D7VcbcWMZ4EBrYUHjOBwljHdm4N5pf8+CSbOs9byPMMWwZsbgVhQ9GZrabzx1eOdzPaL2y5XJP7O1hRsAnWlSx0aHIB5c9QZvSu3LoDynsUexM4LyZKmhXZUFEzeJxO1LSEpNHqNMJhw9DCP+GsV72J/XS8IxegkjEcBBP5eOXMNIXY2yxZ5Sedb98NQqExBbokKOAYRYIrwzNjA6o00SQCRdy8Lk3WY/F36+ihj2gPqIJDDuNBAMM9zjwQ+5ZHe0Tn/PyNDdzOE/Hzm+ZjgX8AfeadjeKeBFKw/a6uUrjUG4KrMXLJ6T6DPNLT/CmDbk1tn0gXMNzS17k+mpeGcCsGkzbc/qa95TwgDxfjOv2xOGckH6+YVtJRO6iZBmIeqveIpa7XtOYddMdDFILCdv+6pbnkSUKy8bsWqE1YsuRYx064GzQJYpYDs1B7h5Y1E3j0N3SpfS3o7w0ljV5kR9GWcoDefKpz535J5Q+J6fQqNipbH7Vq9beU7uavoRty5lHx1uA4Oycz3Zd9Ci7awmiuDN4p0kCjT1bUGYWodgi7t/iGDoud70rZS3EB6i0MOOcOo+07yG1/ur6oGycdlMJmZZmiafUFwIYTEtTnksl/L9Ub/JMdtN2jg6SJQcUJMBAPbpy7TqWSxW6lBqRNbPpk/hdWbizTNWZiBAAItgtNcF4QsiVEozKq7GV7hG38w
+  template:
+    metadata:
+      name: control-agent-crowdsec
+      namespace: control

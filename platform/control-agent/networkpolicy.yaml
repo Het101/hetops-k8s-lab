@@ -1,7 +1,7 @@
 # Who may open a connection to the lab agent (defence in depth: the tailnet policy already lets only tag:ops reach
 # 100.93.151.22:7443, and the agent still wants its bearer token). Nothing in this cluster calls it, so no pod may:
 # the only way in is the center on hetops-3 (100.89.67.82) through the hostPort. Policy sees that address: the CNI's
-# masquerade to the node IP happens in POSTROUTING, after filtering. Ingress only; egress stays open (API server).
+# masquerade to the node IP happens in POSTROUTING, after filtering. Ingress only; egress stays open (API server, and the lab sources' Services).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

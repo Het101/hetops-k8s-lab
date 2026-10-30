@@ -38,6 +38,10 @@ spec:
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: chaos } }           # chaos-api events (plan T5)
     - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: falco } }           # falcosidekick detections (4c; not meshed, plain 8080)
     ports: [{ protocol: TCP, port: 8080 }, { protocol: TCP, port: 8081 }, { protocol: TCP, port: 4143 }]   # 4143: Linkerd proxy (mTLS)
+  - from:                                # HetOps Control's lab agent reads the owner feed (not meshed: plain 8081 only)
+    - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: control } }
+      podSelector: { matchLabels: { app: control-agent } }
+    ports: [{ protocol: TCP, port: 8081 }]
   egress:
   - to:                                  # the Kubernetes API: Service IP and its real endpoint (same as chaos-api)
     - ipBlock: { cidr: 10.96.0.1/32 }
