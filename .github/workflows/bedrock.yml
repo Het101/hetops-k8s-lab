@@ -122,6 +122,20 @@ jobs:
           kubectl -n argocd get cm argocd-cmd-params-cm -o jsonpath='{.data.server\.insecure}' | grep -qx true
           kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=300s
           kubectl -n argocd get statefulset argocd-application-controller -o jsonpath='{.spec.template.metadata.annotations}' | grep -q bedrock.hetops.dev/argocd-settings
+      # The nightly drift check is --check: drift must be reported, never applied (31 Oct: a real apply was taken
+      # for a check run; the audit log showed every check-mode write carries dryRun=All). Hand-edit one key Bedrock
+      # sets by server-side apply (argocd-cm) and one by merge patch (Felix), check, and the cluster keeps the edits.
+      - name: Check mode reports drift and changes nothing
+        run: |
+          kubectl -n argocd patch cm argocd-cm --type merge -p '{"data":{"timeout.reconciliation":"999s"}}'
+          kubectl patch felixconfiguration default --type merge -p "{\"spec\":{\"iptablesMarkMask\":$((0xffff0000))}}"
+          ansible-playbook site.yml --check | tee check-drift.log
+          grep -E 'changed=[1-9]' check-drift.log
+          kubectl -n argocd get cm argocd-cm -o jsonpath='{.data.timeout\.reconciliation}' | grep -qx 999s
+          kubectl get felixconfiguration default -o jsonpath='{.spec.iptablesMarkMask}' | grep -qx "$((0xffff0000))"
+          ansible-playbook site.yml > /dev/null
+          kubectl -n argocd get cm argocd-cm -o jsonpath='{.data.timeout\.reconciliation}' | grep -qx 180s
+          kubectl get felixconfiguration default -o jsonpath='{.spec.iptablesMarkMask}' | grep -qx "$((0xff000000))"
       - name: Summary
         if: always()
         run: |
