@@ -23,7 +23,7 @@ Variable precedence, lowest first: role defaults < `group_vars/all` < `group_var
 | [`upgrade.yml`](upgrade.yml) | one Calico or Kubernetes step, values from `upgrades/<minor>.yml` | staging and ops, then the lab with `-e upgrade_lab=true` |
 | [`reboot.yml`](reboot.yml) | reboots a server with a reboot pending (or any, with `-e reboot_force=true`), then waits until every pod is Ready | staging and ops, then the lab with `-e reboot_lab=true` |
 
-Roles: `common` (every server: SSH hardening, unattended-upgrades, reboot report) · `base`, `kubernetes`, `cluster`, `audit` (every Kubernetes node) · `drift` (the control node: the nightly check) · `tailscale`, `argocd` (the ops cluster: the private link, and its own Argo CD).
+Roles: `common` (every server: SSH hardening, unattended-upgrades, reboot report) · `base`, `kubernetes`, `cluster`, `audit` (every Kubernetes node) · `drift` (the control node: the nightly check) · `tailscale`, `argocd` (ops and staging: the private link, and their own Argo CD).
 
 ## Staging and ops first
 

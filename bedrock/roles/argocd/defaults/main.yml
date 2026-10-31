@@ -4,3 +4,7 @@ argocd_version: v3.5.4
 # The node user's kubeconfig. Its own variable, as the drift role's is: roles/audit's audit_kubeconfig is a default
 # of a role in another play, and this role runs in the ops cluster's play. bedrock_kube_home comes from group_vars.
 argocd_kubeconfig: "{{ bedrock_kube_home }}/.kube/config"
+# The cluster's app-of-apps, relative to the repo root (set per group: ops.yml, staging.yml).
+argocd_root: ""
+# Host directories the cluster's hostPath workloads need, owned by their non-root users (ops.yml); none by default.
+argocd_state_dirs: []

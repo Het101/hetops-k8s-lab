@@ -2,10 +2,10 @@
 name: bedrock
 on:
   pull_request:
-    paths: ["bedrock/**", "platform/host/**", "clusters/ops/root.yaml", ".github/workflows/bedrock.yml"]
+    paths: ["bedrock/**", "platform/host/**", "clusters/ops/root.yaml", "clusters/staging/root.yaml", ".github/workflows/bedrock.yml"]
   push:
     branches: [main]
-    paths: ["bedrock/**", "platform/host/**", "clusters/ops/root.yaml", ".github/workflows/bedrock.yml"]
+    paths: ["bedrock/**", "platform/host/**", "clusters/ops/root.yaml", "clusters/staging/root.yaml", ".github/workflows/bedrock.yml"]
   workflow_dispatch:
   # Weekly, even with no change here: package repos, Calico's manifest URL and the runner image all move
   # under the playbook. The portfolio's "last proven" reads the latest passing run.

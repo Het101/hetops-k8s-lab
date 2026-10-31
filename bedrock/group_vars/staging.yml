@@ -13,3 +13,7 @@ bedrock_api_python: /opt/bedrock/venv/bin/python3     # made by roles/kubernetes
 bedrock_kube_user: ubuntu
 bedrock_kube_home: /home/ubuntu
 
+# Its private link (HetOps Control's center on hetops-3 reads its agent over Tailscale) and its own Argo CD
+# (31 Oct, stage 3 of HetOps Control), like ops.
+tailscale_tag: "tag:staging"
+argocd_root: clusters/staging/root.yaml
