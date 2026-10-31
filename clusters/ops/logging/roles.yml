@@ -15,3 +15,8 @@ control_reader:
   indices:
     - names: ["logs-lab-default", "logs-lab-security"]
       privileges: [read]
+# HetOps Control's snapshot.now: POST _slm/policy/<id>/_execute and nothing else in its code. manage_slm is the narrowest privilege
+# that runs a policy (create_snapshot would bypass SLM's history and retention, which the Backups page reads). The snapshot runs
+# with the headers of whoever last PUT the policy (the setup Job), not as this user.
+control_operator:
+  cluster: [manage_slm]

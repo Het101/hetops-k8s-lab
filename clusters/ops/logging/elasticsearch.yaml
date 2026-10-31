@@ -20,6 +20,7 @@ spec:
       - secretName: ops-es-user-lab-shipper
       - secretName: ops-es-user-gatus-watcher
       - secretName: ops-es-user-control-reader
+      - secretName: ops-es-user-control-operator
   nodeSets:
     - name: default
       count: 1
