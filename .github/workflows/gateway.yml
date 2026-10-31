@@ -2,11 +2,11 @@
 # it reaches the lab: Bedrock builds a throwaway cluster like the lab server, then NGINX Gateway Fabric, the
 # Gateway and the lab's real HTTPRoutes go on it, with stand-in backends, and every path is tested.
 # The routes joined their apps once the Gateway was live (lab #104): Argo CD 3.5 grades a route with no
-# Gateway status Progressing, which would hold clinic, chaos, timeline and logging at Progressing.
+# Gateway status Progressing, which would hold clinic, chaos and timeline at Progressing.
 name: gateway
 on:
   pull_request:
-    paths: ["platform/gateway/**", "apps/*/httproute.yaml", "apps/*/*/httproute.yaml", "platform/logging/httproute.yaml", ".github/workflows/gateway.yml"]
+    paths: ["platform/gateway/**", "apps/*/httproute.yaml", "apps/*/*/httproute.yaml", ".github/workflows/gateway.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -54,12 +54,11 @@ jobs:
           clinic api 80
           clinic web 80
           timeline timeline 8080 8081
-          logging lab-kibana-kb-http 5601
           LIST
           kubectl wait --for=condition=Available deploy -A -l app --timeout=180s 2>/dev/null || kubectl get pods -A | grep -v Running
           kubectl apply -f apps/chaos/httproute.yaml -f apps/clinic/base/httproute.yaml \
-            -f apps/timeline/httproute.yaml -f platform/logging/httproute.yaml
-          for r in chaos/chaos clinic/clinic timeline/timeline logging/kibana; do
+            -f apps/timeline/httproute.yaml
+          for r in chaos/chaos clinic/clinic timeline/timeline; do
             kubectl -n "${r%/*}" wait --for=jsonpath='{.status.parents[0].conditions[?(@.type=="Accepted")].status}'=True \
               "httproute/${r#*/}" --timeout=60s
           done
@@ -78,7 +77,6 @@ jobs:
           lab.hetops.dev /timeline/stream timeline
           lab.hetops.dev /owner/timeline timeline
           lab.hetops.dev /ingest web
-          kibana.hetops.dev / lab-kibana-kb-http
           example.com / 404
           LIST
           exit $fail

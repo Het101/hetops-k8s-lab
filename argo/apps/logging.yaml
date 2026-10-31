@@ -24,7 +24,7 @@ spec:
         telemetry: { disabled: true }
   - repoURL: https://github.com/Het101/hetops-k8s-lab.git
     targetRevision: main
-    path: platform/logging                     # Elasticsearch, Kibana, Filebeat, the Kibana ingress
+    path: platform/logging                     # ops-filebeat, shipping to hetops-3 (the lab ELK went on 31 Oct)
   destination: { server: https://kubernetes.default.svc, namespace: logging }
   syncPolicy:
     automated: { prune: true, selfHeal: true }

@@ -91,3 +91,10 @@
     path: /etc/iptables/rules.v4
     regexp: '^-A FORWARD -j REJECT --reject-with icmp-host-prohibited$'
     state: absent                  # a server without the file (not an Oracle image, a CI runner): nothing to do
+
+# The lab ELK was removed on 31 Oct (ELK move, Task 11). ECK wrote lab-filebeat's read positions to a hostPath, which
+# Kubernetes never deletes. ops-filebeat keeps its own (/var/lib/logging/ops-filebeat). Absent everywhere else already.
+- name: The removed lab-filebeat's read positions are gone
+  ansible.builtin.file:
+    path: /var/lib/logging/lab-filebeat
+    state: absent
