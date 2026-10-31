@@ -1,3 +1,7 @@
 # The lab's Tailscale on 27 Oct, so both ends of the link run the same version. Held (apt-mark hold), so patch.yml
 # never moves it. Moving it is a one-line PR changing this version, then site.yml on the fleet.
 tailscale_version: "1.104.2"
+# The tag every node of a group must carry (set per group: ops.yml, staging.yml); tailscale/policy.hujson grants by it.
+tailscale_tag: ""
+# A login key FILE on the controller, given only for a join: -e tailscale_authkey_file=<path>. Empty: never joins.
+tailscale_authkey_file: ""

@@ -1,28 +1,21 @@
-# Argo CD on the ops cluster (27 Oct), installed the way roles/cluster installs Calico: only where missing,
-# from the release manifest at the written-down version. Then pointed at clusters/ops/ in this repo; from there
-# git owns what runs on the cluster. API tasks run on the node, with the node's kubeconfig (option A).
+# Argo CD on a cluster with its own (ops 27 Oct, staging 31 Oct), installed the way roles/cluster installs Calico:
+# only where missing, from the release manifest at the written-down version. Then pointed at its folder in this repo
+# (argocd_root, group_vars); from there git owns what runs on the cluster. API tasks run on the node, with the node's
+# kubeconfig (option A).
 
-# Gatus (clusters/ops/gatus) runs as non-root UID 65532, and fsGroup does not apply to hostPath volumes, so the host
-# layer owns its state directory. Only the directory: the files inside are Gatus's own, created by 65532 (a one-time
-# recursive run on 28 Oct re-owned the files root had made). This role is ops-only (site.yml plays it on group ops);
-# the nightly drift check guards the ownership.
-- name: Gatus's state directory is owned by its non-root user
+# Directories the host layer owns for that cluster's workloads (argocd_state_dirs, group_vars/ops.yml): non-root pods
+# with hostPath volumes, where fsGroup does not apply. Only the directories: the files inside are the pods' own. The
+# nightly drift check guards the ownership.
+- name: The workloads' state directories are owned by their users
   ansible.builtin.file:
-    path: /var/lib/gatus
+    path: "{{ item.path }}"
     state: directory
-    owner: "65532"
-    group: "65532"
-    mode: "0700"
-
-# Elasticsearch (clusters/ops/logging) writes its nightly snapshots here (path.repo); the image runs as UID 1000,
-# group 0, and fsGroup does not apply to hostPath volumes. Only the directory, as for Gatus.
-- name: Elasticsearch's snapshot directory is owned by its user
-  ansible.builtin.file:
-    path: /var/lib/es-snapshots
-    state: directory
-    owner: "1000"
-    group: "0"
-    mode: "0770"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ argocd_state_dirs }}"
+  loop_control:
+    label: "{{ item.path }}"
 
 - name: Read whether Argo CD is installed
   vars:
@@ -34,6 +27,12 @@
     kubeconfig: "{{ argocd_kubeconfig }}"
   register: argocd_server
   when: cluster_ready
+
+# Check mode on a cluster without Argo CD yet: the manifest is not downloaded and Argo CD's CRDs do not exist, so
+# applying it, waiting for it and applying the root Application cannot be checked. Report the install, skip those.
+- name: Argo CD is only described, not installed (check mode, first install)
+  ansible.builtin.set_fact:
+    argocd_first_check: "{{ ansible_check_mode and (argocd_server.resources | default([]) | length == 0) }}"
 
 - name: Install Argo CD (only where it is missing)
   when: cluster_ready and argocd_server.resources | length == 0
@@ -64,6 +63,7 @@
         server_side_apply:
           field_manager: bedrock
         kubeconfig: "{{ argocd_kubeconfig }}"
+      when: not argocd_first_check
 
 - name: Argo CD's server is available
   vars:
@@ -78,14 +78,14 @@
       type: Available
       status: "True"
     wait_timeout: 300
-  when: cluster_ready
+  when: cluster_ready and not argocd_first_check
 
 # lookup() runs on the controller (the lab, or the CI runner): this repo's file, never a file on the node.
-- name: Argo CD follows clusters/ops in git
+- name: Argo CD follows its cluster's folder in git
   vars:
     ansible_python_interpreter: "{{ bedrock_api_python }}"
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../clusters/ops/root.yaml') | from_yaml }}"
+    definition: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../' ~ argocd_root) | from_yaml }}"
     kubeconfig: "{{ argocd_kubeconfig }}"
-  when: cluster_ready
+  when: cluster_ready and not argocd_first_check

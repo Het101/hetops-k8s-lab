@@ -11,3 +11,12 @@ ansible_ssh_private_key_file: ~/.ssh/bedrock_fleet
 bedrock_api_python: /opt/bedrock/venv/bin/python3     # made by roles/kubernetes, with the pinned client
 bedrock_kube_user: ubuntu
 bedrock_kube_home: /home/ubuntu
+
+# Its private link and its own Argo CD (roles tailscale, argocd).
+tailscale_tag: "tag:ops"
+argocd_root: clusters/ops/root.yaml
+# Gatus (clusters/ops/gatus) runs as UID 65532; Elasticsearch (clusters/ops/logging) writes nightly snapshots
+# (path.repo) as UID 1000, group 0. fsGroup does not apply to hostPath volumes, so the host layer owns these.
+argocd_state_dirs:
+  - { path: /var/lib/gatus, owner: "65532", group: "65532", mode: "0700" }
+  - { path: /var/lib/es-snapshots, owner: "1000", group: "0", mode: "0770" }

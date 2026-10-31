@@ -21,9 +21,10 @@
     - cluster
     - audit
 
-# The ops cluster (hetops-3, 27 Oct): its private link to the lab, and its own Argo CD, which deploys clusters/ops/.
-- name: The ops cluster
-  hosts: ops
+# The clusters with their own Argo CD: ops (hetops-3, 27 Oct) and staging (vm2, 31 Oct). Their private link (Tailscale),
+# and Argo CD, which deploys clusters/<name>/ (argocd_root in group_vars).
+- name: The ops and staging clusters
+  hosts: ops:staging
   become: true
   roles:
     - tailscale
