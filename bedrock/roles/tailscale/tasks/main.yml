@@ -76,14 +76,14 @@
   block:
     - name: Read whether this server is on the tailnet
       ansible.builtin.command: tailscale status --json --peers=false
-      register: tailscale_status
+      register: tailscale_before
       check_mode: false
       changed_when: false
       failed_when: false            # not logged in is an answer, not a failure
 
     - name: Join the tailnet (only with a key file, only where not joined)
       when:
-        - (tailscale_status.stdout | from_json).BackendState | default('') != 'Running'
+        - (tailscale_before.stdout | from_json).BackendState | default('') != 'Running'
         - tailscale_authkey_file | default('') | length > 0
       block:
         - name: Join the tailnet (would change)
@@ -116,12 +116,13 @@
                 path: /run/bedrock-tailscale-authkey
                 state: absent
 
-            - name: Read the tailnet state after joining
-              ansible.builtin.command: tailscale status --json --peers=false
-              register: tailscale_status
-              check_mode: false
-              changed_when: false
-              failed_when: false
+    # Read again (a skipped task would overwrite a registered result, so never inside the join block above).
+    - name: Read the tailnet state
+      ansible.builtin.command: tailscale status --json --peers=false
+      register: tailscale_status
+      check_mode: false
+      changed_when: false
+      failed_when: false
 
     # The tag decides every grant (tailscale/policy.hujson). A key without the tag would make this server a member's
     # device, with members' access: refuse that loudly. Only on a joined node (CI's runner never joins).
