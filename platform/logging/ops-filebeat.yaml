@@ -121,3 +121,23 @@ spec:
         - { name: ops-es-ca, configMap: { name: ops-es-ca } }
         - { name: k8s-audit, hostPath: { path: /var/log/kubernetes/audit, type: DirectoryOrCreate } }
         # ECK also adds a beat-data hostPath (/var/lib/logging/ops-filebeat/filebeat-data) for the read positions; see docs/gameday.md.
+---
+# Its identity. Moved here from filebeat.yaml when the lab ELK was removed (31 Oct); the names are kept, so nothing is recreated.
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: filebeat, namespace: logging }
+---
+# Read-only: autodiscover needs pod, node and namespace metadata (plus owners) to label each log line.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: lab-filebeat }
+rules:
+- { apiGroups: [""], resources: [namespaces, pods, nodes], verbs: [get, list, watch] }
+- { apiGroups: [apps], resources: [replicasets], verbs: [get, list, watch] }
+- { apiGroups: [batch], resources: [jobs], verbs: [get, list, watch] }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: lab-filebeat }
+subjects: [{ kind: ServiceAccount, name: filebeat, namespace: logging }]
+roleRef: { kind: ClusterRole, name: lab-filebeat, apiGroup: rbac.authorization.k8s.io }

@@ -101,21 +101,36 @@ chaos-api freezes visitor chaos when the 7-day error budget is spent (`lab:slo_b
 - While frozen, `CHAOS_BYPASS` requests (game day, the self-test) still run.
 - If Prometheus is unreachable, the lab stays open (fail-open), and `SLIMissing` pages instead.
 
-## Logging (ELK)
+## Logging (ELK, on hetops-3 since 31 Oct)
 
-- Kibana: https://kibana.hetops.dev (Cloudflare tunnel hostname plus an Access app with `owner-only`, set by hand like Grafana). Log in as `elastic`; read the password straight into the clipboard or a password manager, never into chat:
+The lab's logs live on hetops-3 (sub-project 2, `docs/superpowers/specs/2026-10-29-elk-move-design.md`), so they survive the lab going down. On the lab only `ops-filebeat` (`platform/logging`, Argo app `logging`, with the ECK operator that runs it) remains; it ships over Tailscale to `100.89.67.82:9200` as the write-only file-realm user `lab-shipper`. Everything else is `clusters/ops/logging` on hetops-3: Elasticsearch `ops-logs`, Kibana `ops-kibana`, hetops-3's own cloudflared, the setup Jobs.
+
+- Kibana: https://kibana.hetops.dev (route on hetops-3's Cloudflare tunnel to `http://ops-kibana-kb-http.logging.svc:5601`, plus the Access app with `owner-only`, set in Cloudflare by hand). Log in as `elastic`; the password goes straight to the clipboard, never into chat:
   ```bash
-  kubectl -n logging get secret lab-logs-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d
+  ssh ubuntu@130.210.37.122 'kubectl -n logging get secret ops-logs-es-elastic-user -o jsonpath="{.data.elastic}" | base64 -d' | clip
   ```
-- **Yellow after a restart, `logging` stuck in Progressing:** look for replica shards (`r UNASSIGNED`). One node can never place a replica. Kibana's detection engine creates `.lists-default` and `.items-default` with 1 replica; set them to 0 (done 22 Oct). A new backing index after a rollover needs it again:
+- Data: two data streams, `logs-lab-default` (container logs) and `logs-lab-security` (audit, Falco); data view `lab-logs` and the three detection rules are code in `clusters/ops/logging/kibana-objects/` (a change made by clicking is overwritten on the next sync).
+- Retention: 7 days live (ILM `logs-lab-7d`, rollover daily). Snapshots: SLM `nightly-all` 01:30 UTC to repository `local` (hetops-3's disk), `nightly-security` 01:45 UTC to repository `r2` (bucket `hetops-logs-security`); kept 30 days (min 5, max 35). Disk guard: allocation stops under 30 GB free, writes block under 20 GB.
+- Watched by Gatus on hetops-3 (group `logs`): cluster health, "Logs arriving from the lab" (documents in the last 10 minutes; an outage pages after about 25 minutes), and one check per snapshot policy.
+- **Never put a secret in a command that crosses the API server** (`kubectl exec ... -u "elastic:$PW"` is recorded by the audit log, which Filebeat ships; found 29 Oct). Query from hetops-3's host, where the password stays in a curl config read from a file descriptor:
   ```bash
-  PW=$(kubectl -n logging get secret lab-logs-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d)
-  kubectl -n logging exec lab-logs-es-default-0 -c elasticsearch -- curl -sk -u "elastic:$PW" "https://localhost:9200/_cat/shards?h=index,prirep,state,unassigned.reason" | grep UNASSIGNED
-  kubectl -n logging exec lab-logs-es-default-0 -c elasticsearch -- curl -sk -u "elastic:$PW" -X PUT "https://localhost:9200/<index>/_settings" -H 'content-type: application/json' -d '{"index":{"number_of_replicas":0}}'
+  # on hetops-3
+  PW=$(kubectl -n logging get secret ops-logs-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d)
+  es(){ curl -sk -K <(printf 'user = "elastic:%s"\n' "$PW") "$@"; echo; }
+  es https://100.89.67.82:9200/_cluster/health
+  es "https://100.89.67.82:9200/_slm/policy?filter_path=*.last_success,*.last_failure"
+  es "https://100.89.67.82:9200/_cat/shards?h=index,prirep,state,unassigned.reason" | grep UNASSIGNED   # yellow: one node never places a replica; set that index's number_of_replicas to 0
+  ```
+- **Restore** (tested 29 Oct: local 2.6 s, R2 8.8 s). Restore beside the live data under a new name, search it in Kibana (an ad-hoc data view on `restored-*`), then delete it:
+  ```bash
+  S=$(es "https://100.89.67.82:9200/_cat/snapshots/local?h=id&s=end_epoch:desc" | head -1)      # or /r2 for the security stream
+  es -H 'content-type: application/json' -X POST "https://100.89.67.82:9200/_snapshot/local/$S/_restore?wait_for_completion=true" \
+    -d '{"indices":"logs-lab-default","rename_pattern":"(.+)","rename_replacement":"restored-$1","include_aliases":false,"include_global_state":false}'
+  es -X DELETE "https://100.89.67.82:9200/_data_stream/restored-*"
   unset PW
   ```
-- Retention: 3 days (ILM policy from the `filebeat-ilm-policy` ConfigMap). Disk guard: Elasticsearch stops allocating with less than 30 GB free on the host, and blocks writes below 20 GB.
-- Host paths written by the stack (clean up only after removing the `logging` app): the local-path volume under `/opt/local-path-provisioner/`, and Filebeat's read positions at `/var/lib/logging/lab-filebeat/`.
+- Host paths: the data volume under `/opt/local-path-provisioner/` on hetops-3, snapshots in `/var/lib/es-snapshots` (owned through Bedrock `group_vars/ops.yml`); on the lab, `ops-filebeat`'s read positions at `/var/lib/logging/ops-filebeat/`.
+- The lab's own ELK (`lab-logs`, `lab-kibana`, `lab-filebeat`, 10 Oct to 31 Oct) was removed by the PR that added this section; its spec is `docs/superpowers/specs/2026-10-10-elk-design.md`.
 
 ## Kubernetes audit logging (SIEM track, T1)
 
@@ -129,7 +144,7 @@ cd ~/hetops-k8s-lab && git pull && cd bedrock && ansible-playbook site.yml --che
 sudo kubeadm upgrade diff v1.31.14 2>&1 | grep -E '^[-+] +- --audit' | sed 's/^[-+]//' | sort | uniq -u   # empty: every audit flag is kept (at most moved)
 ```
 
-Filebeat ships `/var/log/kubernetes/audit/audit.log` to Elasticsearch under `k8s_audit.*` (`log_source: k8s-audit`). (Until 21 Oct, `platform/host/enable-audit.sh` patched the manifest by hand, and the first upgrade would have dropped the flags.)
+`ops-filebeat` ships `/var/log/kubernetes/audit/audit.log` to Elasticsearch on hetops-3 (`logs-lab-security`) under `k8s_audit.*` (`log_source: k8s-audit`). (Until 21 Oct, `platform/host/enable-audit.sh` patched the manifest by hand, and the first upgrade would have dropped the flags.)
 
 ## Falco (SIEM track, T2)
 
