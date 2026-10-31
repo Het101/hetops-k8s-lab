@@ -21,13 +21,19 @@
     - cluster
     - audit
 
-# The clusters with their own Argo CD: ops (hetops-3, 27 Oct) and staging (vm2, 31 Oct). Their private link (Tailscale),
-# and Argo CD, which deploys clusters/<name>/ (argocd_root in group_vars).
+# The ops (hetops-3, 27 Oct) and staging (vm2, 31 Oct) clusters' private link. The lab's Tailscale is not Bedrock's.
 - name: The ops and staging clusters
   hosts: ops:staging
   become: true
   roles:
     - tailscale
+
+# Every cluster's Argo CD: installed where missing (ops, staging; the lab's dates from 8 Oct), its settings, and the
+# folder it deploys (argocd_root in group_vars: argo/ for the lab, clusters/<name>/ for the others).
+- name: Every cluster's Argo CD
+  hosts: k8s
+  become: true
+  roles:
     - argocd
 
 # The nightly drift check lives on the control node (the lab) and checks the whole fleet from there.
