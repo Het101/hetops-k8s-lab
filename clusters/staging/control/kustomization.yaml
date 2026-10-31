@@ -1,0 +1,11 @@
+# HetOps Control's staging agent (apps/control.yaml). No top-level `namespace:`: rbac.yaml puts a Role in argocd,
+# which kustomize would otherwise move into control. The secrets are sealed for this cluster, namespace control only.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - sealed-agent-token.yaml
+  - sealed-agent-tls.yaml
+  - agent.yaml
+  - networkpolicy.yaml
