@@ -1,5 +1,5 @@
 # Kibana on hetops-3, reached through hetops-3's own Cloudflare tunnel (cloudflared.yaml) behind Cloudflare Access.
-# publicBaseUrl moves to kibana.hetops.dev in Task 11.
+# kibana.hetops.dev moved here from the lab in Task 11 (31 Oct); the route and Access app are set in Cloudflare.
 apiVersion: kibana.k8s.elastic.co/v1
 kind: Kibana
 metadata:
@@ -14,7 +14,7 @@ spec:
   http:
     tls: { selfSignedCertificate: { disabled: true } }   # plain HTTP inside the cluster; Cloudflare terminates TLS
   config:
-    server.publicBaseUrl: https://kibana-ops.hetops.dev
+    server.publicBaseUrl: https://kibana.hetops.dev
     telemetry.optIn: false
     telemetry.allowChangingOptInStatus: false
   podTemplate:
