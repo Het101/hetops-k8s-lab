@@ -113,6 +113,15 @@ jobs:
         run: |
           kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
           kubectl -n argocd get application root -o jsonpath='{.spec.source.path}' | grep -qx clusters/ops/apps
+      # Bedrock's settings land, and the install manifest's keys survive them (a partial apply under the install's
+      # field manager would drop them).
+      - name: Argo CD's settings apply on top of the install
+        run: |
+          kubectl -n argocd get cm argocd-cm -o jsonpath='{.data.timeout\.reconciliation}' | grep -qx 180s
+          kubectl -n argocd get cm argocd-cm -o jsonpath='{.data.resource\.exclusions}' | grep -q Lease
+          kubectl -n argocd get cm argocd-cmd-params-cm -o jsonpath='{.data.server\.insecure}' | grep -qx true
+          kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=300s
+          kubectl -n argocd get statefulset argocd-application-controller -o jsonpath='{.spec.template.metadata.annotations}' | grep -q bedrock.hetops.dev/argocd-settings
       - name: Summary
         if: always()
         run: |

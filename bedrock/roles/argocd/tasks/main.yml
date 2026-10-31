@@ -83,6 +83,9 @@
 
 # Only Bedrock's keys (argocd_cm, argocd_cmd_params): the install manifest keeps the rest. force_conflicts takes a key
 # over from whoever set it by hand (the lab's kubectl patches), and a later hand edit shows in the nightly drift check.
+# Field manager bedrock-settings, never bedrock: the install above applied the whole manifest as bedrock, and a partial
+# apply under the same manager releases every field it leaves out. Check mode on ops and staging (31 Oct) showed it:
+# argocd-cm would have lost resource.exclusions, the StatefulSet its selector and containers.
 - name: Argo CD's settings
   vars:
     ansible_python_interpreter: "{{ bedrock_api_python }}"
@@ -97,7 +100,7 @@
       data: "{{ item.data }}"
     apply: true
     server_side_apply:
-      field_manager: bedrock
+      field_manager: bedrock-settings
       force_conflicts: true
     kubeconfig: "{{ argocd_kubeconfig }}"
   loop:
@@ -128,7 +131,7 @@
               bedrock.hetops.dev/argocd-settings: "{{ [argocd_cm, argocd_cmd_params] | to_json(sort_keys=true) | hash('sha256') }}"
     apply: true
     server_side_apply:
-      field_manager: bedrock
+      field_manager: bedrock-settings
     kubeconfig: "{{ argocd_kubeconfig }}"
   loop:
     - { kind: StatefulSet, name: argocd-application-controller }

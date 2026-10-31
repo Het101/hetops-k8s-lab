@@ -9,7 +9,7 @@ argocd_root: ""
 # Host directories the cluster's hostPath workloads need, owned by their non-root users (ops.yml); none by default.
 argocd_state_dirs: []
 # Argo CD's settings: the keys Bedrock owns in argocd-cm and argocd-cmd-params-cm (server-side apply, field manager
-# bedrock). Every other key stays the install manifest's. A key dropped from here is released, not deleted.
+# bedrock-settings). Every other key stays the install manifest's. A key dropped from here is released, not deleted.
 # timeout.reconciliation: how often every app is compared with git when nothing else happened. A change to a live
 # object triggers a comparison at once (watch events), so self-heal never waits for it; only a new commit does (up to
 # this plus Argo CD's jitter). The lab ran 60 s from 8 Oct (kubectl patch, chaos lab L7) for "reverted within about a
