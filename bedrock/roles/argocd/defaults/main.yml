@@ -2,9 +2,19 @@
 # never moves an installed one: an Argo CD upgrade is a step of its own, like Calico's.
 argocd_version: v3.5.4
 # The node user's kubeconfig. Its own variable, as the drift role's is: roles/audit's audit_kubeconfig is a default
-# of a role in another play, and this role runs in the ops cluster's play. bedrock_kube_home comes from group_vars.
+# of a role in another play, and this role runs in its own play. bedrock_kube_home comes from group_vars.
 argocd_kubeconfig: "{{ bedrock_kube_home }}/.kube/config"
-# The cluster's app-of-apps, relative to the repo root (set per group: ops.yml, staging.yml).
+# The cluster's app-of-apps, relative to the repo root (set per group: lab.yml, ops.yml, staging.yml).
 argocd_root: ""
 # Host directories the cluster's hostPath workloads need, owned by their non-root users (ops.yml); none by default.
 argocd_state_dirs: []
+# Argo CD's settings: the keys Bedrock owns in argocd-cm and argocd-cmd-params-cm (server-side apply, field manager
+# bedrock-settings). Every other key stays the install manifest's. A key dropped from here is released, not deleted.
+# timeout.reconciliation: how often every app is compared with git when nothing else happened. A change to a live
+# object triggers a comparison at once (watch events), so self-heal never waits for it; only a new commit does (up to
+# this plus Argo CD's jitter). The lab ran 60 s from 8 Oct (kubectl patch, chaos lab L7) for "reverted within about a
+# minute", which the watches already give: self-test 31 Oct, scale-zero 15 s, bad-release 25 s, delete-web 31 s.
+# 60 s tripled the controller's periodic work for nothing; 180 s is Argo CD's default, written down.
+argocd_cm:
+  timeout.reconciliation: 180s
+argocd_cmd_params: {}

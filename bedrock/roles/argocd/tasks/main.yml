@@ -1,5 +1,6 @@
-# Argo CD on a cluster with its own (ops 27 Oct, staging 31 Oct), installed the way roles/cluster installs Calico:
-# only where missing, from the release manifest at the written-down version. Then pointed at its folder in this repo
+# Argo CD on every cluster (ops 27 Oct, staging 31 Oct; the lab's, installed by hand on 8 Oct, adopted 31 Oct),
+# installed the way roles/cluster installs Calico: only where missing, from the release manifest at the written-down
+# version. Then its settings (defaults/main.yml, lab.yml), and pointed at its folder in this repo
 # (argocd_root, group_vars); from there git owns what runs on the cluster. API tasks run on the node, with the node's
 # kubeconfig (option A).
 
@@ -78,6 +79,65 @@
       type: Available
       status: "True"
     wait_timeout: 300
+  when: cluster_ready and not argocd_first_check
+
+# Only Bedrock's keys (argocd_cm, argocd_cmd_params): the install manifest keeps the rest. force_conflicts takes a key
+# over from whoever set it by hand (the lab's kubectl patches), and a later hand edit shows in the nightly drift check.
+# Field manager bedrock-settings, never bedrock: the install above applied the whole manifest as bedrock, and a partial
+# apply under the same manager releases every field it leaves out. Check mode on ops and staging (31 Oct) showed it:
+# argocd-cm would have lost resource.exclusions, the StatefulSet its selector and containers.
+- name: Argo CD's settings
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ item.name }}"
+        namespace: argocd
+      data: "{{ item.data }}"
+    apply: true
+    server_side_apply:
+      field_manager: bedrock-settings
+      force_conflicts: true
+    kubeconfig: "{{ argocd_kubeconfig }}"
+  loop:
+    - { name: argocd-cm, data: "{{ argocd_cm }}" }
+    - { name: argocd-cmd-params-cm, data: "{{ argocd_cmd_params }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  when: cluster_ready and not argocd_first_check
+
+# Both settings maps reach the processes as environment variables, read at start. A checksum of them on the pod
+# templates restarts the controller and the server when they change, and only then (the pattern of Helm's
+# checksum/config). ponytail: the repo-server is left out; add it when a reposerver.* key is set.
+- name: Argo CD's controller and server run with these settings
+  vars:
+    ansible_python_interpreter: "{{ bedrock_api_python }}"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: "{{ item.kind }}"
+      metadata:
+        name: "{{ item.name }}"
+        namespace: argocd
+      spec:
+        template:
+          metadata:
+            annotations:
+              bedrock.hetops.dev/argocd-settings: "{{ [argocd_cm, argocd_cmd_params] | to_json(sort_keys=true) | hash('sha256') }}"
+    apply: true
+    server_side_apply:
+      field_manager: bedrock-settings
+    kubeconfig: "{{ argocd_kubeconfig }}"
+  loop:
+    - { kind: StatefulSet, name: argocd-application-controller }
+    - { kind: Deployment, name: argocd-server }
+  loop_control:
+    label: "{{ item.name }}"
   when: cluster_ready and not argocd_first_check
 
 # lookup() runs on the controller (the lab, or the CI runner): this repo's file, never a file on the node.

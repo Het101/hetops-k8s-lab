@@ -7,3 +7,13 @@
 bedrock_api_python: "{{ ansible_playbook_python }}"
 bedrock_kube_user: "{{ lookup('ansible.builtin.env', 'USER') }}"
 bedrock_kube_home: "{{ lookup('ansible.builtin.env', 'HOME') }}"
+
+# Its Argo CD (installed by hand on 8 Oct, chaos lab L7; roles/argocd never moves an installed one) deploys argo/.
+argocd_root: argo/root.yaml
+# kubectl patches until 31 Oct (docs/gameday.md). Self-heal backoff: drift here is deliberate (the chaos lab), so
+# back-to-back experiments must not wait for Argo CD's 300 s cap (bad-release took 296 s, 9 Oct).
+# server.insecure: the Cloudflare tunnel terminates TLS in front of argocd-server.
+argocd_cmd_params:
+  controller.self.heal.backoff.cap.seconds: "30"
+  controller.self.heal.backoff.cooldown.seconds: "60"
+  server.insecure: "true"

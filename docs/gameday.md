@@ -79,14 +79,10 @@ After game day, the lab runs all 15 experiments by itself every night at 03:00 I
 
 ## Cluster settings that live outside git
 
-Argo CD itself was installed by hand (Part 1), so these settings exist only on the cluster. Re-apply them after any reinstall.
+Argo CD itself was installed by hand (Part 1). Its settings are no longer among these: since 31 Oct they live in Bedrock (`bedrock/roles/argocd`, keys in `defaults/main.yml` and `group_vars/lab.yml`), which applies them and restarts the controller when they change. Never `kubectl patch` them: the nightly drift check reports it.
 
-- **Self-heal backoff** (found by the first self-test, 9 Oct). By default, Argo CD waits longer before each consecutive self-heal: 2 s, times 3 each time, capped at 300 s, and it resets only after 330 s of calm. That protects real clusters from two tools fighting over one object. In this lab, drift is deliberate, so back-to-back experiments hit the cap: `bad-release` took 296 s. Lab setting:
-  ```bash
-  kubectl -n argocd patch configmap argocd-cmd-params-cm --type merge -p '{"data":{"controller.self.heal.backoff.cap.seconds":"30","controller.self.heal.backoff.cooldown.seconds":"60"}}'
-  kubectl -n argocd rollout restart statefulset argocd-application-controller
-  ```
-- **Reconciliation every 60 s** (L7): `timeout.reconciliation: 60s` in `argocd-cm`.
+- **Self-heal backoff** (found by the first self-test, 9 Oct), now `argocd_cmd_params` in `bedrock/group_vars/lab.yml`. By default, Argo CD waits longer before each consecutive self-heal: 2 s, times 3 each time, capped at 300 s, and it resets only after 330 s of calm. That protects real clusters from two tools fighting over one object. In this lab, drift is deliberate, so back-to-back experiments hit the cap: `bad-release` took 296 s. The lab caps it at 30 s, cooldown 60 s.
+- **Reconciliation: 180 s**, Argo CD's default (was 60 s from L7 until 31 Oct). Self-heal does not depend on it: a change to a live object triggers a comparison at once.
 - **Gateway request metrics:** open-source NGINX Gateway Fabric counts requests but has no status code or path. The visitors dashboard reads the gateway's Linkerd proxy instead (`response_total`, `response_latency_ms_bucket` by `dst_deployment`), scraped by `platform/monitoring/extras/nginx-gateway-metrics.yaml`. (ingress-nginx, retired 22 Oct, needed `--enable-metrics` patched in by hand.)
 - **Node inotify limit:** `fs.inotify.max_user_instances = 512` in `/etc/sysctl.d/99-inotify.conf`. The default of 128 ran out with Kubernetes and Coolify on one VM (`kubectl logs -f` failed with "too many open files").
 
