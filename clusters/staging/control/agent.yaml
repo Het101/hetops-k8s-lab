@@ -1,0 +1,60 @@
+# The staging agent: reads this cluster and serves it to the center on hetops-3 over HTTPS, reachable only over
+# Tailscale: the hostPort is bound to staging's Tailscale address, so the CNI forwards 7443 only for traffic to
+# STAGING_TS_IP (and the tailnet policy lets only tag:ops in); the public IP gets nothing. Its certificate
+# (IP:STAGING_TS_IP) is signed by the ops CA the center trusts. No Service: nothing in the cluster calls it.
+# Only the always-on sources (kubernetes, argo, hostload): staging runs no Alertmanager, CrowdSec or Coolify, and its
+# Bedrock drift is already reported by the lab agent.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-agent
+  namespace: control
+spec:
+  replicas: 1
+  strategy: { type: Recreate }          # one hostPort, one pod: never two at once
+  selector:
+    matchLabels: { app: control-agent }
+  template:
+    metadata:
+      labels: { app: control-agent }
+    spec:
+      serviceAccountName: control-agent
+      automountServiceAccountToken: true   # the agent is a Kubernetes API client (rbac.yaml)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: agent
+          # hetops-control main ca30c835af96338fe54d2d729ea647d7ec4cd847 (the same image as the lab and ops agents)
+          image: ghcr.io/het101/hetops-control-agent@sha256:abc26644f548b6aa0ce1ba7fa1365af409aba60f333b954a57a5ced02cef28db
+          env:
+            - { name: SERVER, value: staging }
+            - { name: AGENT_TOKEN_FILE, value: /secrets/token/token }
+            - { name: TLS_CERT_FILE, value: /secrets/tls/tls.crt }
+            - { name: TLS_KEY_FILE, value: /secrets/tls/tls.key }
+          ports:
+            - { name: https, containerPort: 7443, hostPort: 7443, hostIP: STAGING_TS_IP }
+          volumeMounts:
+            - { name: token, mountPath: /secrets/token, readOnly: true }
+            - { name: tls, mountPath: /secrets/tls, readOnly: true }
+          readinessProbe:
+            httpGet: { path: /healthz, port: https, scheme: HTTPS }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: https, scheme: HTTPS }
+            periodSeconds: 30
+            failureThreshold: 4
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 192Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: token
+          secret: { secretName: control-agent-token }
+        - name: tls
+          secret: { secretName: control-agent-tls }

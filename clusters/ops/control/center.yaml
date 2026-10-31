@@ -42,7 +42,8 @@ spec:
             - name: AGENTS
               value: >-
                 [{"server":"ops","url":"http://control-agent.control.svc:7443","tokenFile":"/secrets/agents/ops"},
-                {"server":"lab","url":"https://100.93.151.22:7443","tokenFile":"/secrets/agents/lab","caFile":"/ca/ca.crt"}]
+                {"server":"lab","url":"https://100.93.151.22:7443","tokenFile":"/secrets/agents/lab","caFile":"/ca/ca.crt"},
+                {"server":"staging","url":"https://STAGING_TS_IP:7443","tokenFile":"/secrets/agents/staging","caFile":"/ca/ca.crt"}]
             - { name: DB_PATH, value: /data/events.db }
             # the Cloudflare Access app "control": team domain and AUD tag, neither secret
             - { name: ACCESS_TEAM_DOMAIN, value: nameless-wave-c3ce.cloudflareaccess.com }
