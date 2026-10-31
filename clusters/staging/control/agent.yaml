@@ -1,7 +1,7 @@
 # The staging agent: reads this cluster and serves it to the center on hetops-3 over HTTPS, reachable only over
 # Tailscale: the hostPort is bound to staging's Tailscale address, so the CNI forwards 7443 only for traffic to
-# STAGING_TS_IP (and the tailnet policy lets only tag:ops in); the public IP gets nothing. Its certificate
-# (IP:STAGING_TS_IP) is signed by the ops CA the center trusts. No Service: nothing in the cluster calls it.
+# 100.105.52.69 (and the tailnet policy lets only tag:ops in); the public IP gets nothing. Its certificate
+# (IP:100.105.52.69) is signed by the ops CA the center trusts. No Service: nothing in the cluster calls it.
 # Only the always-on sources (kubernetes, argo, hostload): staging runs no Alertmanager, CrowdSec or Coolify, and its
 # Bedrock drift is already reported by the lab agent.
 apiVersion: apps/v1
@@ -35,7 +35,7 @@ spec:
             - { name: TLS_CERT_FILE, value: /secrets/tls/tls.crt }
             - { name: TLS_KEY_FILE, value: /secrets/tls/tls.key }
           ports:
-            - { name: https, containerPort: 7443, hostPort: 7443, hostIP: STAGING_TS_IP }
+            - { name: https, containerPort: 7443, hostPort: 7443, hostIP: 100.105.52.69 }
           volumeMounts:
             - { name: token, mountPath: /secrets/token, readOnly: true }
             - { name: tls, mountPath: /secrets/tls, readOnly: true }
