@@ -35,8 +35,8 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: center
-          # hetops-control main c03e2e7f9526a2c2930253225db9da0be3b71f51
-          image: ghcr.io/het101/hetops-control-center@sha256:0e56a6c53bf3803869ecd6b5ce572765e6b2ccbdaa7b9429ec1a7cecc4903851
+          # hetops-control main e20cd1121473cbf3530c4ca08861e14a7a8b4a51
+          image: ghcr.io/het101/hetops-control-center@sha256:7f7b33e44c912a830357ac4b9ef101d971b409fdad5b27a63ce7cbbd74b59a2e
           env:
             # tokens come from files (Secret control-agent-tokens); the lab agent's certificate is signed by the ops CA
             - name: AGENTS
@@ -48,6 +48,9 @@ spec:
             # the Cloudflare Access app "control": team domain and AUD tag, neither secret
             - { name: ACCESS_TEAM_DOMAIN, value: nameless-wave-c3ce.cloudflareaccess.com }
             - { name: ACCESS_AUD, value: 73f0b7ef7dc0c1b60aa91809120445ca123245fa707c9aa2847ec8044b1dff5a }
+            # stage 2: POSTs must come from this page (the Origin check), and only these Access identities may act
+            - { name: PUBLIC_ORIGIN, value: "https://control.hetops.dev" }
+            - { name: ACTORS, value: "patel.x.het@gmail.com" }
           ports:
             - { name: http, containerPort: 8080 }
           volumeMounts:

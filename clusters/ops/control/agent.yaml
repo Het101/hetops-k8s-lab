@@ -22,8 +22,8 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: agent
-          # hetops-control main c03e2e7f9526a2c2930253225db9da0be3b71f51
-          image: ghcr.io/het101/hetops-control-agent@sha256:26509d252539059f7ba35aaf1586e5b281c92cc408efb67ae3bc5a3f9b72b2db
+          # hetops-control main e20cd1121473cbf3530c4ca08861e14a7a8b4a51
+          image: ghcr.io/het101/hetops-control-agent@sha256:6ee12f821a86aae40728462e8dcda108f12257ccc542f323ba56399092d4a8b4
           env:
             - { name: SERVER, value: ops }
             - { name: AGENT_TOKEN_FILE, value: /secrets/token }
@@ -32,11 +32,16 @@ spec:
             - { name: ES_URL, value: "https://ops-logs-es-http.logging.svc:9200" }
             - { name: ES_AUTH_DIR, value: /es-reader }             # control-reader: role control_reader in logging/roles.yml
             - { name: NODE_EXTRA_CA_CERTS, value: /ca/ca.crt }     # the ops CA signed the ES http certificate
+            # stage 2: the verbs this agent offers (hetops-control apps/agent/src/actions). snapshot.now runs an SLM policy as
+            # control-operator (manage_slm); every read stays with control-reader.
+            - { name: ACTIONS, value: snapshot.now }
+            - { name: ES_OPERATOR_DIR, value: /es-operator }
           ports:
             - { name: http, containerPort: 7443 }
           volumeMounts:
             - { name: token, mountPath: /secrets, readOnly: true }
             - { name: es-reader, mountPath: /es-reader, readOnly: true }
+            - { name: es-operator, mountPath: /es-operator, readOnly: true }
             - { name: ops-ca, mountPath: /ca, readOnly: true }
           readinessProbe:
             httpGet: { path: /healthz, port: http }
@@ -57,6 +62,8 @@ spec:
           secret: { secretName: control-agent-token }
         - name: es-reader
           secret: { secretName: control-es-reader, items: [{ key: username, path: username }, { key: password, path: password }] }
+        - name: es-operator
+          secret: { secretName: control-es-operator, items: [{ key: username, path: username }, { key: password, path: password }] }
         - name: ops-ca
           configMap: { name: ops-ca }
 ---

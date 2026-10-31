@@ -8,6 +8,7 @@ resources:
   - sealed-agent-token.yaml
   - sealed-agent-tokens.yaml
   - sealed-es-reader.yaml
+  - sealed-es-operator.yaml
   - agent.yaml
   - center.yaml
   - networkpolicy.yaml
