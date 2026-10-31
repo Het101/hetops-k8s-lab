@@ -14,13 +14,13 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: [nodes, pods]
-    verbs: [list]
+    verbs: [list, watch]   # watch: the agent keeps an informer cache instead of re-listing (hetops-control #27)
   - apiGroups: [""]
     resources: [nodes/proxy]
     verbs: [get]            # the agent only GETs /api/v1/nodes/<node>/proxy/stats/summary
   - apiGroups: [apps]
     resources: [deployments, statefulsets, daemonsets]
-    verbs: [list]
+    verbs: [list, watch]   # watch: the agent keeps an informer cache instead of re-listing (hetops-control #27)
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -39,7 +39,7 @@ metadata:
 rules:
   - apiGroups: [argoproj.io]
     resources: [applications]
-    verbs: [list]
+    verbs: [list, watch]   # watch: the agent keeps an informer cache instead of re-listing (hetops-control #27)
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
