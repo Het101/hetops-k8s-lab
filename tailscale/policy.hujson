@@ -6,6 +6,7 @@
 	"tagOwners": {
 		"tag:lab": ["autogroup:admin"], // my-workspace: the lab cluster and every HetOps site
 		"tag:ops": ["autogroup:admin"], // hetops-3: the ops cluster (Gatus; later ELK)
+		"tag:staging": ["autogroup:admin"], // vm2: staging, where changes are tried first
 	},
 
 	"grants": [
@@ -18,6 +19,11 @@
 		{"src": ["tag:ops"], "dst": ["tag:lab"], "ip": ["icmp:*"]},
 		// HetOps Control: the center on hetops-3 reads the lab's agent (TLS + bearer token, hostPort on 100.93.151.22).
 		{"src": ["tag:ops"], "dst": ["tag:lab"], "ip": ["tcp:7443"]},
+		// HetOps Control: the center reads the staging agent (TLS from the ops CA + bearer token, hostPort on vm2's
+		// Tailscale address). Staging gets no grant of its own: it is only ever called, and keeps its own resolver.
+		{"src": ["tag:ops"], "dst": ["tag:staging"], "ip": ["tcp:7443"]},
+		{"src": ["tag:ops"], "dst": ["tag:staging"], "ip": ["icmp:*"]},
+		{"src": ["tag:staging"], "dst": ["tag:ops"], "ip": ["icmp:*"]},
 		// The owner's own devices (the phones) see Gatus's page, its only way in; nothing else on either server.
 		{"src": ["autogroup:member"], "dst": ["tag:ops"], "ip": ["tcp:8080"]},
 		// The tailnet's DNS (admin console, DNS: global nameserver) is the lab's AdGuard, so the owner's devices
