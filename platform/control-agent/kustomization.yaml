@@ -8,6 +8,8 @@ resources:
   - sealed-agent-tls.yaml
   - sealed-agent-crowdsec.yaml      # the CrowdSec bouncer key (read-only)
   - sealed-agent-coolify.yaml       # the Coolify API token (read-only)
+  - sealed-agent-coolify-deploy.yaml   # the Coolify deploy-only token
+  - argo-guard.yaml                 # admission policy on the agent's Argo patches
   - crowdsec-ca.yaml
   - agent.yaml
   - networkpolicy.yaml

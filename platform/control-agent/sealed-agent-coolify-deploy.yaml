@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: control-agent-coolify-deploy
+  namespace: control
+spec:
+  encryptedData:
+    token: AgAslZBskJK1Fv85FBsUTdiMZPMnZ5AmMXMNF0BOUB+2HeJtUL2QI4W4Tc1/rkLx20fCqtPX6SxLxRgqN9M9ACwPWnUZaiq3yTLFB+68pxNAfKtTvjg5MCT5BafO3fq+pslG9nSMhZI28GMxgFDq08xxXjMAynJPvIW9WP8Az9nY/cx/JkXvFHEJa+4sXEbB3xf307ajDbcCVe1/2rOrX88YYq3HcRMNUtleYl/9nQRLzFeGSvYTXadK5zSZXu1L1ap04BdEDKJXl/9iGX3YOtxPWVRlpkwS5JJFDIlkfhCa/URuSWAdn4zKZf0sxSRQXad5P3d4Zd2nYCwLFMWoIcErJHZdpgGV1S78koeFOzjeg7D//t7LShCqcMMHqNT5PbAQWGzsg/73EHHWvRJyU0MIhyeEpD4LX4pRqQ2qoBSO6kW+R/E4Ad5M6+bcz3/DLPx+dNUxtF7naJi8aDTIACWaD51tum5IUiNIfVppH2RWTV40AW9VrLF0utBUdEmTXNo+MP5cawT5GuySI9VGCh8XLkTz037WztMrk5DqYPp+VaD4O+uSxQ+3+QbZtKsR7if2hECHKv1kOYijY3ualQhTzYsS2+/g1yYWalGI733ZF4pgZTmkwkUBPKkWZM50Bg7od5NK02QPlsrk+xYDLW9qGC9+iadt1oeo8a9JoL3In87QlUtxnnqcfc4cgDu+GYy8/ZuL+gpl7Ifc+qgVNih/LNgvvMuB2beyAqaXTDqYTHu2mz2R6tYPuOfbP7KQ4+IVew==
+  template:
+    metadata:
+      name: control-agent-coolify-deploy
+      namespace: control

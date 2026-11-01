@@ -1,0 +1,64 @@
+# What the control agent may change on an Argo CD Application, and nothing else. Its Role allows `patch` (rbac.yaml); RBAC cannot see
+# inside a patch, and Argo CD applies as cluster-admin, so a patch that repointed an app's source would be a cluster takeover.
+# The API server therefore refuses every change by the agent's ServiceAccount except:
+#   - the refresh annotation, normal or hard (argo.refresh);
+#   - a new sync operation to the app's own target revision: no revision(s), source(s), manifests, resources, sync options,
+#     prune or force (argo.sync; exactly what `argocd app sync --core` writes for a plain sync).
+# Sync wave -1: it exists before the Role that grants the patch.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: control-agent-argo-actions
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [argoproj.io]
+        apiVersions: ["*"]
+        operations: [UPDATE]
+        resources: [applications]
+  matchConditions:
+    - name: only-the-control-agent
+      expression: request.userInfo.username == "system:serviceaccount:control:control-agent"
+  validations:
+    - expression: object.spec == oldObject.spec
+      message: the control agent may not change an Application's spec
+    - expression: has(object.status) == has(oldObject.status) && (!has(object.status) || object.status == oldObject.status)
+      message: the control agent may not change an Application's status
+    - expression: >-
+        has(object.metadata.labels) == has(oldObject.metadata.labels) && (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels)
+        && has(object.metadata.finalizers) == has(oldObject.metadata.finalizers) && (!has(object.metadata.finalizers) || object.metadata.finalizers == oldObject.metadata.finalizers)
+        && has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) && (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)
+      message: the control agent may not change labels, finalizers or owners
+    - expression: >-
+        (!has(object.metadata.annotations) || object.metadata.annotations.all(k, k == 'argocd.argoproj.io/refresh'
+          || (has(oldObject.metadata.annotations) && k in oldObject.metadata.annotations && oldObject.metadata.annotations[k] == object.metadata.annotations[k])))
+        && (!has(oldObject.metadata.annotations) || oldObject.metadata.annotations.all(k, k == 'argocd.argoproj.io/refresh'
+          || (has(object.metadata.annotations) && k in object.metadata.annotations)))
+      message: the control agent may only set the refresh annotation
+    - expression: >-
+        !has(object.metadata.annotations) || !('argocd.argoproj.io/refresh' in object.metadata.annotations)
+        || object.metadata.annotations['argocd.argoproj.io/refresh'] in ['normal', 'hard']
+      message: refresh must be normal or hard
+    - expression: >-
+        !has(object.operation) || (has(oldObject.operation) && object.operation == oldObject.operation)
+        || (has(object.operation.sync)
+          && !has(object.operation.sync.revision) && !has(object.operation.sync.revisions)
+          && !has(object.operation.sync.source) && !has(object.operation.sync.sources)
+          && !has(object.operation.sync.manifests) && !has(object.operation.sync.resources)
+          && !has(object.operation.sync.syncOptions)
+          && (!has(object.operation.sync.prune) || object.operation.sync.prune == false)
+          && (!has(object.operation.sync.syncStrategy) || (
+               (!has(object.operation.sync.syncStrategy.apply) || !has(object.operation.sync.syncStrategy.apply.force) || object.operation.sync.syncStrategy.apply.force == false)
+            && (!has(object.operation.sync.syncStrategy.hook) || !has(object.operation.sync.syncStrategy.hook.force) || object.operation.sync.syncStrategy.hook.force == false))))
+      message: a sync from the control agent must target the app's own revision, without prune, force, options or overrides
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: control-agent-argo-actions
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  policyName: control-agent-argo-actions
+  validationActions: [Deny]
