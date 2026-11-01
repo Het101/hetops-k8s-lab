@@ -25,8 +25,8 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: agent
-          # hetops-control main c03e2e7f9526a2c2930253225db9da0be3b71f51 (the same image as the ops agent)
-          image: ghcr.io/het101/hetops-control-agent@sha256:26509d252539059f7ba35aaf1586e5b281c92cc408efb67ae3bc5a3f9b72b2db
+          # hetops-control main 957e7eefdd42a3f7fffd75c5c5aa0c0ba9f3c4f4 (the same image as the ops agent)
+          image: ghcr.io/het101/hetops-control-agent@sha256:16063df3d0af71de5f66af8cfa6e593f8756e45638a7956841787ed247151049
           env:
             - { name: SERVER, value: lab }
             - { name: AGENT_TOKEN_FILE, value: /secrets/token/token }
@@ -45,6 +45,10 @@ spec:
             # (the bytes never leave the VM). The token is read-only (Coolify Keys & Tokens, "read"): no env values, no writes.
             - { name: COOLIFY_URL, value: "http://10.0.0.11:8000" }
             - { name: COOLIFY_TOKEN_FILE, value: /secrets/coolify/token }
+            # stage 2: the verbs this agent offers. Argo through the Kubernetes API (rbac.yaml + argo-guard.yaml); Alertmanager's
+            # silences on the same Service the alerts source reads; Coolify with a second, deploy-only token.
+            - { name: ACTIONS, value: "argo.sync,argo.refresh,alert.silence,coolify.redeploy" }
+            - { name: COOLIFY_DEPLOY_TOKEN_FILE, value: /secrets/coolify-deploy/token }
           ports:
             - { name: https, containerPort: 7443, hostPort: 7443, hostIP: 100.93.151.22 }
           volumeMounts:
@@ -54,6 +58,7 @@ spec:
             - { name: crowdsec-ca, mountPath: /etc/crowdsec-ca, readOnly: true }
             - { name: bedrock, mountPath: /bedrock, readOnly: true }
             - { name: coolify, mountPath: /secrets/coolify, readOnly: true }
+            - { name: coolify-deploy, mountPath: /secrets/coolify-deploy, readOnly: true }
           readinessProbe:
             httpGet: { path: /healthz, port: https, scheme: HTTPS }
             periodSeconds: 10
@@ -77,6 +82,8 @@ spec:
           secret: { secretName: control-agent-crowdsec }
         - name: coolify                     # a Coolify API token with the "read" permission only
           secret: { secretName: control-agent-coolify }
+        - name: coolify-deploy              # Coolify ability "deploy" only: it cannot read
+          secret: { secretName: control-agent-coolify-deploy }
         - name: crowdsec-ca
           configMap: { name: control-agent-crowdsec-ca }
         # Bedrock's nightly drift results, one file per server ("clean" or "drift"), written by bedrock-drift.timer as ubuntu

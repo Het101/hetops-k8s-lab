@@ -17,6 +17,8 @@ spec:
   - { group: "", kind: Namespace }                     # CreateNamespace + managedNamespaceMetadata
   - { group: rbac.authorization.k8s.io, kind: ClusterRole }
   - { group: rbac.authorization.k8s.io, kind: ClusterRoleBinding }
+  - { group: admissionregistration.k8s.io, kind: ValidatingAdmissionPolicy }          # the guard on the agent's Argo patches
+  - { group: admissionregistration.k8s.io, kind: ValidatingAdmissionPolicyBinding }
   namespaceResourceWhitelist:                          # argocd is a destination, so name exactly what may land
   - { group: "", kind: ServiceAccount }
   - { group: "", kind: ConfigMap }                     # the CrowdSec LAPI's public CA certificate
