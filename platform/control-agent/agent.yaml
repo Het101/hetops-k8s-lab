@@ -26,7 +26,7 @@ spec:
       containers:
         - name: agent
           # hetops-control main 957e7eefdd42a3f7fffd75c5c5aa0c0ba9f3c4f4 (the same image as the ops agent)
-          image: ghcr.io/het101/hetops-control-agent@sha256:9a47f91362532105d9eef64726e91c50a2e24dcacf2ebd78b46cdc05b367fe4d
+          image: ghcr.io/het101/hetops-control-agent@sha256:a9e5c20128ed433aedac4a7d60e04ca9deced035eb5da74c6457598ef9c41645
           env:
             - { name: SERVER, value: lab }
             - { name: AGENT_TOKEN_FILE, value: /secrets/token/token }
