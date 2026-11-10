@@ -36,7 +36,7 @@ spec:
       containers:
         - name: center
           # hetops-control main e20cd1121473cbf3530c4ca08861e14a7a8b4a51
-          image: ghcr.io/het101/hetops-control-center@sha256:1950f39dbec3fd2caee5984c1e89b040df83711e3e520f050c5f0b30b235667a
+          image: ghcr.io/het101/hetops-control-center@sha256:707ae184229b4435062e063493c3f27076ca910e7e640ed701e69506a7c3b5b8
           env:
             # tokens come from files (Secret control-agent-tokens); the lab agent's certificate is signed by the ops CA
             - name: AGENTS
