@@ -47,15 +47,35 @@ if (ips.length > MAX_IPS) {
   ips = ips.slice(0, MAX_IPS);
 }
 
-const cf = async (path, init = {}) => {
+// Cloudflare's edge answers a 5xx or a rate limit with an HTML page, not the API's JSON (10 Nov: one tick died on
+// "Unexpected token '<'" with no status). So the status is read before the body, and a transient answer (429, 5xx, a
+// timeout or a non-JSON body) is tried once more after a short wait. Both calls are safe to repeat: a GET, and a PATCH
+// that sets the whole expression. The CronJob's 50 s deadline bounds it: two tries of 10 s, two calls, plus the waits.
+const transient = (status) => status === 429 || status >= 500;
+const cfOnce = async (path, init) => {
+  const what = `Cloudflare ${init.method ?? 'GET'} ${path}`;
   const res = await fetch(`${CF_API}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${CF_TOKEN}`, 'content-type': 'application/json' },
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(10_000),
   });
-  const body = await res.json();
-  if (!body.success) throw new Error(`Cloudflare ${init.method ?? 'GET'} ${path}: ${res.status} ${JSON.stringify(body.errors)}`);
+  const text = await res.text();
+  let body;
+  try { body = JSON.parse(text); } catch {
+    throw Object.assign(new Error(`${what}: ${res.status}, not JSON: ${text.slice(0, 80).replace(/\s+/g, ' ')}`), { retry: true });
+  }
+  if (!res.ok || !body.success) {
+    throw Object.assign(new Error(`${what}: ${res.status} ${JSON.stringify(body.errors)}`), { retry: transient(res.status) });
+  }
   return body.result;
+};
+const cf = async (path, init = {}) => {
+  try { return await cfOnce(path, init); } catch (e) {
+    if (!e.retry && e.name !== 'TimeoutError') throw e;
+    console.log(JSON.stringify({ retrying: e.message }));
+    await new Promise((r) => setTimeout(r, 3_000));
+    return cfOnce(path, init);
+  }
 };
 
 const entry = await cf(`/zones/${CF_ZONE}/rulesets/phases/http_request_firewall_custom/entrypoint`);
